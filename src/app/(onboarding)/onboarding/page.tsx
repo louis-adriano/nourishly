@@ -2,7 +2,39 @@
 
 import { useState } from "react";
 
-type HealthGoal = "weight-loss" | "muscle-gain" | "general-wellness" | "athletic-performance";
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type HealthGoal =
+  | "weight-loss"
+  | "muscle-gain"
+  | "general-wellness"
+  | "athletic-performance";
+
+type DietaryRestriction =
+  | "vegetarian"
+  | "vegan"
+  | "gluten-free"
+  | "dairy-free"
+  | "nut-free"
+  | "low-carb"
+  | "keto"
+  | "paleo"
+  | "halal"
+  | "kosher";
+
+type CuisinePreference =
+  | "italian"
+  | "mexican"
+  | "chinese"
+  | "japanese"
+  | "indian"
+  | "thai"
+  | "mediterranean"
+  | "american"
+  | "french"
+  | "korean";
+
+// ─── Step 1 data ──────────────────────────────────────────────────────────────
 
 interface GoalCard {
   id: HealthGoal;
@@ -60,101 +92,322 @@ const goals: GoalCard[] = [
   },
 ];
 
+// ─── Step 2 data ──────────────────────────────────────────────────────────────
+
+const dietaryOptions: { id: DietaryRestriction; label: string }[] = [
+  { id: "vegetarian", label: "Vegetarian" },
+  { id: "vegan",      label: "Vegan"      },
+  { id: "gluten-free", label: "Gluten-Free" },
+  { id: "dairy-free", label: "Dairy-Free" },
+  { id: "nut-free",   label: "Nut-Free"   },
+  { id: "low-carb",   label: "Low-Carb"   },
+  { id: "keto",       label: "Keto"       },
+  { id: "paleo",      label: "Paleo"      },
+  { id: "halal",      label: "Halal"      },
+  { id: "kosher",     label: "Kosher"     },
+];
+
+// ─── Step 3 data ──────────────────────────────────────────────────────────────
+
+const cuisineOptions: { id: CuisinePreference; label: string }[] = [
+  { id: "italian",       label: "Italian"       },
+  { id: "mexican",       label: "Mexican"       },
+  { id: "chinese",       label: "Chinese"       },
+  { id: "japanese",      label: "Japanese"      },
+  { id: "indian",        label: "Indian"        },
+  { id: "thai",          label: "Thai"          },
+  { id: "mediterranean", label: "Mediterranean" },
+  { id: "american",      label: "American"      },
+  { id: "french",        label: "French"        },
+  { id: "korean",        label: "Korean"        },
+];
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function toggle<T>(set: T[], value: T): T[] {
+  return set.includes(value) ? set.filter((v) => v !== value) : [...set, value];
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function OnboardingPage() {
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1 state
   const [selectedGoal, setSelectedGoal] = useState<HealthGoal | null>(null);
 
-  const handleNext = () => {
-    // Placeholder — navigation to be wired up later
-    console.log("Selected goal:", selectedGoal);
+  // Step 2 state
+  const [selectedDiet, setSelectedDiet] = useState<DietaryRestriction[]>([]);
+
+  // Step 3 state
+  const [selectedCuisines, setSelectedCuisines] = useState<CuisinePreference[]>([]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleFinishSetup = () => {
+    // Placeholder — to be wired up to Supabase later
+    console.log("Onboarding complete:", {
+      goal: selectedGoal,
+      dietaryRestrictions: selectedDiet,
+      cuisinePreferences: selectedCuisines,
+    });
   };
+
+  // ── Shared UI pieces ────────────────────────────────────────────────────────
+
+  const stepLabel = (
+    <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-8">
+      Step {currentStep} of 3
+    </p>
+  );
+
+  const backButton = (targetStep: 1 | 2) => (
+    <button
+      onClick={() => setCurrentStep(targetStep)}
+      className="px-8 py-3 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 bg-white hover:bg-gray-50 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]"
+    >
+      Back
+    </button>
+  );
+
+  const nextButton = (onClick: () => void, disabled = false) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={[
+        "px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
+        !disabled
+          ? "bg-[#2C7A4B] text-white hover:bg-[#235f3a] cursor-pointer"
+          : "bg-gray-200 text-gray-400 cursor-not-allowed",
+      ].join(" ")}
+      aria-disabled={disabled}
+    >
+      Next
+    </button>
+  );
+
+  // ── Step 1 ──────────────────────────────────────────────────────────────────
+
+  if (currentStep === 1) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          {stepLabel}
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+            <div className="text-center mb-10">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                What is your health goal?
+              </h1>
+              <p className="text-gray-500 text-base">
+                Help us personalise your nutrition plan
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+              {goals.map((goal) => {
+                const isSelected = selectedGoal === goal.id;
+                return (
+                  <button
+                    key={goal.id}
+                    onClick={() => setSelectedGoal(goal.id)}
+                    className={[
+                      "flex items-start gap-4 text-left rounded-xl border-2 px-5 py-5 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
+                      isSelected
+                        ? "border-[#2C7A4B] bg-[#f0f9f4]"
+                        : "border-gray-200 bg-white hover:border-[#2C7A4B]/40 hover:bg-gray-50",
+                    ].join(" ")}
+                    aria-pressed={isSelected}
+                  >
+                    <span
+                      className={[
+                        "mt-0.5 flex-shrink-0 rounded-lg p-2 transition-colors duration-150",
+                        isSelected
+                          ? "bg-[#2C7A4B] text-white"
+                          : "bg-gray-100 text-gray-500",
+                      ].join(" ")}
+                    >
+                      {goal.icon}
+                    </span>
+                    <span className="flex flex-col">
+                      <span
+                        className={[
+                          "text-base font-semibold transition-colors duration-150",
+                          isSelected ? "text-[#2C7A4B]" : "text-gray-800",
+                        ].join(" ")}
+                      >
+                        {goal.label}
+                      </span>
+                      <span className="text-sm text-gray-500 mt-0.5">
+                        {goal.description}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setCurrentStep(2)}
+                disabled={selectedGoal === null}
+                className={[
+                  "px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
+                  selectedGoal !== null
+                    ? "bg-[#2C7A4B] text-white hover:bg-[#235f3a] cursor-pointer"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed",
+                ].join(" ")}
+                aria-disabled={selectedGoal === null}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2 ──────────────────────────────────────────────────────────────────
+
+  if (currentStep === 2) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          {stepLabel}
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+            <div className="text-center mb-10">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Select your dietary restrictions
+              </h1>
+              <p className="text-gray-500 text-base">
+                We&apos;ll make sure your recipes match your preferences
+              </p>
+            </div>
+
+            {/* Checkboxes grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
+              {dietaryOptions.map((option) => {
+                const isChecked = selectedDiet.includes(option.id);
+                return (
+                  <label
+                    key={option.id}
+                    className={[
+                      "flex items-center gap-3 rounded-xl border-2 px-5 py-4 cursor-pointer transition-all duration-150",
+                      isChecked
+                        ? "border-[#2C7A4B] bg-[#f0f9f4]"
+                        : "border-gray-200 bg-white hover:border-[#2C7A4B]/40 hover:bg-gray-50",
+                    ].join(" ")}
+                  >
+                    {/* Custom checkbox */}
+                    <span
+                      className={[
+                        "flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors duration-150",
+                        isChecked
+                          ? "bg-[#2C7A4B] border-[#2C7A4B]"
+                          : "bg-white border-gray-300",
+                      ].join(" ")}
+                    >
+                      {isChecked && (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => setSelectedDiet(toggle(selectedDiet, option.id))}
+                      className="sr-only"
+                      aria-label={option.label}
+                    />
+                    <span
+                      className={[
+                        "text-sm font-medium transition-colors duration-150",
+                        isChecked ? "text-[#2C7A4B]" : "text-gray-700",
+                      ].join(" ")}
+                    >
+                      {option.label}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-between items-center">
+              {backButton(1)}
+              {selectedDiet.length === 0 ? (
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="text-sm font-medium text-gray-400 underline underline-offset-4 hover:text-gray-600 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B] cursor-pointer"
+                >
+                  Skip
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="px-8 py-3 rounded-xl text-sm font-semibold bg-[#2C7A4B] text-white hover:bg-[#235f3a] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B] cursor-pointer"
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 3 ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
+        {stepLabel}
 
-        {/* Progress label */}
-        <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-8">
-          Step 1 of 3
-        </p>
-
-        {/* Card container */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
-
-          {/* Heading */}
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              What is your health goal?
+              Choose your favourite cuisines
             </h1>
             <p className="text-gray-500 text-base">
-              Help us personalise your nutrition plan
+              Select all that apply — we&apos;ll find the best recipes for you
             </p>
           </div>
 
-          {/* Goal cards grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-            {goals.map((goal) => {
-              const isSelected = selectedGoal === goal.id;
+          {/* Cuisine tags */}
+          <div className="flex flex-wrap gap-3 mb-10">
+            {cuisineOptions.map((option) => {
+              const isSelected = selectedCuisines.includes(option.id);
               return (
                 <button
-                  key={goal.id}
-                  onClick={() => setSelectedGoal(goal.id)}
+                  key={option.id}
+                  onClick={() => setSelectedCuisines(toggle(selectedCuisines, option.id))}
                   className={[
-                    "flex items-start gap-4 text-left rounded-xl border-2 px-5 py-5 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
+                    "px-5 py-2.5 rounded-full border-2 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
                     isSelected
-                      ? "border-[#2C7A4B] bg-[#f0f9f4]"
-                      : "border-gray-200 bg-white hover:border-[#2C7A4B]/40 hover:bg-gray-50",
+                      ? "border-[#2C7A4B] bg-[#2C7A4B] text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-[#2C7A4B]/40 hover:bg-gray-50",
                   ].join(" ")}
                   aria-pressed={isSelected}
                 >
-                  {/* Icon */}
-                  <span
-                    className={[
-                      "mt-0.5 flex-shrink-0 rounded-lg p-2 transition-colors duration-150",
-                      isSelected
-                        ? "bg-[#2C7A4B] text-white"
-                        : "bg-gray-100 text-gray-500",
-                    ].join(" ")}
-                  >
-                    {goal.icon}
-                  </span>
-
-                  {/* Text */}
-                  <span className="flex flex-col">
-                    <span
-                      className={[
-                        "text-base font-semibold transition-colors duration-150",
-                        isSelected ? "text-[#2C7A4B]" : "text-gray-800",
-                      ].join(" ")}
-                    >
-                      {goal.label}
-                    </span>
-                    <span className="text-sm text-gray-500 mt-0.5">
-                      {goal.description}
-                    </span>
-                  </span>
+                  {option.label}
                 </button>
               );
             })}
           </div>
 
-          {/* Next button */}
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            {backButton(2)}
             <button
-              onClick={handleNext}
-              disabled={selectedGoal === null}
-              className={[
-                "px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]",
-                selectedGoal !== null
-                  ? "bg-[#2C7A4B] text-white hover:bg-[#235f3a] cursor-pointer"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed",
-              ].join(" ")}
-              aria-disabled={selectedGoal === null}
+              onClick={handleFinishSetup}
+              className="px-8 py-3 rounded-xl text-sm font-semibold bg-[#2C7A4B] text-white hover:bg-[#235f3a] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B] cursor-pointer"
             >
-              Next
+              Finish Setup
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
