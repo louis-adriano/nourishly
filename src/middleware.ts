@@ -27,10 +27,34 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const { pathname } = request.nextUrl
+
+  if (user) {
+    if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    if (pathname.startsWith('/onboarding')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_done')
+        .eq('user_id', user.id)
+        .single()
+
+      if (profile?.onboarding_done) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
+
+      return supabaseResponse
+    }
+  }
+
   const publicRoutes = ['/login', '/register', '/onboarding']
-  const isPublicRoute = publicRoutes.some(route =>
-    request.nextUrl.pathname.startsWith(route)
-  )
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
