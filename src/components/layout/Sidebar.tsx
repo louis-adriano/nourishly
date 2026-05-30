@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV_LINKS = [
   {
@@ -51,6 +53,24 @@ const NAV_LINKS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [fullName, setFullName] = useState("User");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      setEmail(user.email ?? "");
+      setFullName(user.user_metadata?.full_name || "User");
+    });
+  }, []);
+
+  async function handleLogOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   return (
     <aside className="sidebar">
@@ -100,13 +120,13 @@ export default function Sidebar() {
       {/* User + Logout — wired by auth owner (FR-01) */}
       <div className="sidebar-footer">
         <div className="user-info">
-          <div className="user-avatar">J</div>
+          <div className="user-avatar">{fullName.charAt(0).toUpperCase()}</div>
           <div className="user-details">
-            <p className="user-name">Jonathan</p>
-            <p className="user-email">jonathan@email.com</p>
+            <p className="user-name">{fullName}</p>
+            <p className="user-email">{email}</p>
           </div>
         </div>
-        <button className="logout-btn" type="button">
+        <button className="logout-btn" type="button" onClick={handleLogOut}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />

@@ -170,9 +170,17 @@ export default function OnboardingPage() {
   // ── Shared UI pieces ────────────────────────────────────────────────────────
 
   const stepLabel = (
-    <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-8">
-      Step {currentStep} of 3
-    </p>
+    <div className="mb-8">
+      <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-3">
+        Step {currentStep} of 3
+      </p>
+      <div className="w-full bg-gray-200 rounded-full h-1.5">
+        <div
+          className="bg-[#2C7A4B] h-1.5 rounded-full transition-all duration-300"
+          style={{ width: `${(currentStep / 3) * 100}%` }}
+        />
+      </div>
+    </div>
   )
 
   const backButton = (targetStep: 1 | 2) => (
