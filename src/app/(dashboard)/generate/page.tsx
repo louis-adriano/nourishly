@@ -3,65 +3,43 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type PageState = "idle" | "loading" | "done";
+type PageState = "idle" | "loading" | "done" | "error";
 
 interface Recipe {
-  recipe_id: string;
+  id: string;
   title: string;
   description: string;
   cook_time_mins: number;
-  nutrition_json: {
+  nutrition: {
     calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
   };
 }
-
-// Mock recipes — replaced by real API response when FR03-02 wires the Claude call
-const MOCK_RECIPES: Recipe[] = [
-  {
-    recipe_id: "mock-001",
-    title: "Lemon Herb Grilled Chicken",
-    description: "A light and zesty grilled chicken with fresh herbs, perfect for a high-protein lunch or dinner.",
-    cook_time_mins: 25,
-    nutrition_json: { calories: 420, protein: 48, carbs: 8, fat: 14 },
-  },
-  {
-    recipe_id: "mock-002",
-    title: "Mediterranean Chickpea Bowl",
-    description: "Hearty chickpeas with roasted vegetables, feta and a tahini drizzle over fluffy quinoa.",
-    cook_time_mins: 30,
-    nutrition_json: { calories: 450, protein: 18, carbs: 52, fat: 16 },
-  },
-  {
-    recipe_id: "mock-003",
-    title: "Thai Coconut Salmon",
-    description: "Pan-seared salmon in a fragrant coconut milk broth with ginger, lemongrass and bok choy.",
-    cook_time_mins: 20,
-    nutrition_json: { calories: 510, protein: 42, carbs: 12, fat: 28 },
-  },
-  {
-    recipe_id: "mock-004",
-    title: "Veggie Stir-Fry Noodles",
-    description: "Silky rice noodles tossed with seasonal vegetables in a savory sesame-soy glaze.",
-    cook_time_mins: 15,
-    nutrition_json: { calories: 380, protein: 12, carbs: 64, fat: 10 },
-  },
-];
 
 export default function GeneratePage() {
   const [pageState, setPageState] = useState<PageState>("idle");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function handleGenerate() {
+  async function handleGenerate() {
     setPageState("loading");
-    // FR03-02 owner replaces this timeout with the real Claude API fetch
-    // Expected: fetch("/api/recipes", { method: "POST", ... }) → setRecipes(data.recipes)
-    setTimeout(() => {
-      setRecipes(MOCK_RECIPES);
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/recipes", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Failed to generate recipes");
+        setPageState("error");
+        return;
+      }
+      setRecipes(data.recipes);
       setPageState("done");
-    }, 2500);
+    } catch {
+      setErrorMsg("Network error — please try again");
+      setPageState("error");
+    }
   }
 
   function handleGenerateAgain() {
@@ -81,7 +59,7 @@ export default function GeneratePage() {
         </div>
 
         <div className="header-actions">
-          {pageState === "done" && (
+          {(pageState === "done" || pageState === "error") && (
             <button
               className="generate-again-btn"
               onClick={handleGenerateAgain}
@@ -97,7 +75,7 @@ export default function GeneratePage() {
           <button
             className={`generate-btn${pageState === "loading" ? " generate-btn--loading" : ""}`}
             onClick={handleGenerate}
-            disabled={pageState === "loading" || pageState === "done"}
+            disabled={pageState === "loading" || pageState === "done" || pageState === "error"}
             type="button"
           >
             {pageState === "loading" ? (
@@ -124,6 +102,7 @@ export default function GeneratePage() {
       <div className={`content-area${pageState === "done" ? " content-area--grid" : ""}`}>
         {pageState === "idle" && <EmptyState />}
         {pageState === "loading" && <LoadingState />}
+        {pageState === "error" && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
         {pageState === "done" && <RecipeGrid recipes={recipes} />}
       </div>
 
@@ -264,10 +243,10 @@ function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
       <div className="recipe-grid">
         {recipes.map((recipe, i) => (
           <RecipeCard
-            key={recipe.recipe_id}
+            key={recipe.id}
             recipe={recipe}
             index={i}
-            onClick={() => router.push(`/recipes/${recipe.recipe_id}`)}
+            onClick={() => router.push(`/generate/${recipe.id}`)}
           />
         ))}
       </div>
@@ -336,7 +315,7 @@ function RecipeCard({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
-            {recipe.nutrition_json.calories} kcal
+            {recipe.nutrition.calories} kcal
           </span>
         </div>
 
@@ -441,6 +420,68 @@ function RecipeCard({
         }
       `}</style>
     </button>
+  );
+}
+
+/* ── Error state ── */
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="error-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e57373" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <h2 className="error-title">Could not generate recipes</h2>
+      <p className="error-body">{message}</p>
+      <button className="retry-btn" onClick={onRetry} type="button">Try again</button>
+
+      <style jsx>{`
+        .error-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          max-width: 360px;
+          padding: 40px 24px;
+          gap: 12px;
+          animation: fadeUp 0.3s ease both;
+          font-family: 'DM Sans', 'Nunito', sans-serif;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .error-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #1a3a28;
+          margin: 0;
+          letter-spacing: -0.3px;
+        }
+        .error-body {
+          font-size: 14px;
+          color: #7a9a88;
+          margin: 0;
+          line-height: 1.6;
+        }
+        .retry-btn {
+          margin-top: 4px;
+          padding: 10px 22px;
+          border-radius: 10px;
+          border: 1.5px solid #d4e6da;
+          background: #fff;
+          color: #2C7A4B;
+          font-size: 14px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .retry-btn:hover {
+          background: #eaf4ee;
+          border-color: #2C7A4B;
+        }
+      `}</style>
+    </div>
   );
 }
 
