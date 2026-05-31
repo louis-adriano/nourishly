@@ -112,14 +112,26 @@ Return ONLY a valid JSON array with exactly 4 recipe objects. Each object must h
 Do not include any text before or after the JSON array.`
 
     // 4. Claude API
+    console.log('[recipes] Sending prompt to Claude:\n', prompt)
     let claudeResponse
     try {
       claudeResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
       })
-    } catch {
+      console.log('[recipes] Claude response:', {
+        content: claudeResponse.content,
+        stop_reason: claudeResponse.stop_reason,
+        usage: claudeResponse.usage,
+      })
+    } catch (err) {
+      const apiErr = err as { message?: string; status?: number; error?: unknown }
+      console.error('[recipes] Claude API error:', {
+        message: apiErr.message,
+        status: apiErr.status,
+        error: apiErr.error,
+      })
       return NextResponse.json(
         { error: 'Recipe generation unavailable, please try again' },
         { status: 503 },
@@ -127,27 +139,28 @@ Do not include any text before or after the JSON array.`
     }
 
     // 5. Parse
-    const raw = claudeResponse.content[0]
-    if (raw.type !== 'text') {
-      return NextResponse.json(
-        { error: 'Failed to parse recipe response' },
-        { status: 502 },
-      )
+    const rawText = (claudeResponse.content[0] as { type: string; text: string }).text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(rawText)
+    } catch {
+      console.error('[recipes] JSON parse failed. Raw text:', rawText.slice(0, 500))
+      return NextResponse.json({ error: 'Failed to parse recipe response' }, { status: 502 })
     }
 
-    let parsed: RawRecipe[]
-    try {
-      parsed = JSON.parse(raw.text)
-      if (!Array.isArray(parsed)) throw new Error('Response is not an array')
-    } catch {
-      return NextResponse.json(
-        { error: 'Failed to parse recipe response' },
-        { status: 502 },
-      )
+    if (!Array.isArray(parsed)) {
+      return NextResponse.json({ error: 'Failed to parse recipe response' }, { status: 502 })
     }
+    console.log('[recipes] Parsed array length:', parsed.length)
 
     // 6. Validate
-    const valid = parsed.filter(isValidRecipe) as ValidRecipe[]
+    const valid = (parsed as RawRecipe[]).filter(isValidRecipe) as ValidRecipe[]
+    console.log('[recipes] Valid recipes after filter:', valid.length, 'first:', valid[0] ?? null)
     if (valid.length === 0) {
       return NextResponse.json(
         { error: 'No valid recipes returned' },
@@ -164,11 +177,19 @@ Do not include any text before or after the JSON array.`
       cook_time_mins: recipe.cook_time_mins,
       nutrition_json: recipe.nutrition,
     }))
+    console.log('[recipes] Inserting rows:', JSON.stringify(rows))
 
     const { data: saved, error: saveError } = await supabase
       .from('recipes')
       .insert(rows)
-      .select('id, title, cook_time_mins, ingredients_json, steps_json, nutrition_json')
+      .select('recipe_id, title, cook_time_mins, ingredients_json, steps_json, nutrition_json')
+
+    console.log('[recipes] Supabase insert result — data:', saved, 'error:', {
+      message: saveError?.message,
+      code: (saveError as Record<string, unknown> | null)?.code,
+      details: (saveError as Record<string, unknown> | null)?.details,
+      hint: (saveError as Record<string, unknown> | null)?.hint,
+    })
 
     if (saveError || !saved) {
       return NextResponse.json(
@@ -179,7 +200,7 @@ Do not include any text before or after the JSON array.`
 
     // 8. Return saved recipes with their database ids, merging description from valid[]
     const recipes = saved.map((row, i) => ({
-      id: row.id,
+      id: row.recipe_id,
       title: row.title,
       description: valid[i].description,
       cook_time_mins: row.cook_time_mins,
@@ -188,8 +209,10 @@ Do not include any text before or after the JSON array.`
       nutrition: row.nutrition_json,
     }))
 
+    console.log('[recipes] Final response:', JSON.stringify({ recipes }))
     return NextResponse.json({ recipes }, { status: 200 })
   } catch (err) {
+    console.error('[recipes] Unexpected error:', err)
     const message = err instanceof Error ? err.message : 'An unexpected error occurred'
     return NextResponse.json({ error: message }, { status: 500 })
   }
