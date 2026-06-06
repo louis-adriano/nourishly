@@ -499,7 +499,7 @@ function EmptyState() {
       </div>
       <h2 className="empty-title">Ready to discover new recipes?</h2>
       <p className="empty-body">
-        Click <strong>Generate Recipes</strong> above and we'll create personalised
+        Click <strong>Generate Recipes</strong> above and we&apos;ll create personalised
         recipe suggestions tailored to your nutrition goals and taste preferences.
       </p>
       <div className="empty-hints">
