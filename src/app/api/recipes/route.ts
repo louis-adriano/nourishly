@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { anthropic } from '@/lib/claude/client'
+import groq from '@/lib/claude/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,23 +111,23 @@ Return ONLY a valid JSON array with exactly 4 recipe objects. Each object must h
 
 Do not include any text before or after the JSON array.`
 
-    // 4. Claude API
-    console.log('[recipes] Sending prompt to Claude:\n', prompt)
-    let claudeResponse
+    // 4. Groq API
+    console.log('[recipes] Sending prompt to Groq:\n', prompt)
+    let groqResponse
     try {
-      claudeResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+      groqResponse = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4000,
       })
-      console.log('[recipes] Claude response:', {
-        content: claudeResponse.content,
-        stop_reason: claudeResponse.stop_reason,
-        usage: claudeResponse.usage,
+      console.log('[recipes] Groq response:', {
+        content: groqResponse.choices[0].message.content,
+        finish_reason: groqResponse.choices[0].finish_reason,
+        usage: groqResponse.usage,
       })
     } catch (err) {
       const apiErr = err as { message?: string; status?: number; error?: unknown }
-      console.error('[recipes] Claude API error:', {
+      console.error('[recipes] Groq API error:', {
         message: apiErr.message,
         status: apiErr.status,
         error: apiErr.error,
@@ -139,7 +139,7 @@ Do not include any text before or after the JSON array.`
     }
 
     // 5. Parse
-    const rawText = (claudeResponse.content[0] as { type: string; text: string }).text
+    const rawText = (groqResponse.choices[0].message.content ?? '')
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/```\s*$/i, '')
