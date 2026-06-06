@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { anthropic } from '@/lib/claude/client'
+import groq from '@/lib/claude/client'
 
 // ─── Session-based substitution counter ───────────────────────────────────────
 // Stored in memory on the server. Resets if the server restarts (fine for dev
@@ -54,9 +54,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // ── Call Claude ─────────────────────────────────────────────────────────
-    const message = await anthropic.messages.create({
-      model: 'claude-opus-4-7',
+    // ── Call Groq ───────────────────────────────────────────────────────────
+    const message = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 1024,
       messages: [
         {
@@ -83,12 +83,7 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
       ],
     })
 
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude')
-    }
-
-    const result = JSON.parse(content.text)
+    const result = JSON.parse(message.choices[0].message.content ?? '{}')
 
     // ── Increment count only after a successful Claude response ─────────────
     const newCount = currentCount + 1
