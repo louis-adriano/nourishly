@@ -133,10 +133,14 @@ function toggle<T>(set: T[], value: T): T[] {
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1)
   const [selectedGoal, setSelectedGoal] = useState<HealthGoal | null>(null)
   const [selectedDiet, setSelectedDiet] = useState<DietaryRestriction[]>([])
   const [selectedCuisines, setSelectedCuisines] = useState<CuisinePreference[]>([])
+  const [dailyCalories, setDailyCalories] = useState(2000)
+  const [dailyProtein, setDailyProtein] = useState(150)
+  const [dailyCarbs, setDailyCarbs] = useState(200)
+  const [dailyFat, setDailyFat] = useState(65)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -153,6 +157,10 @@ export default function OnboardingPage() {
         health_goal: selectedGoal,
         dietary_restrictions: selectedDiet,
         cuisine_preferences: selectedCuisines,
+        daily_calories: dailyCalories,
+        daily_protein_g: dailyProtein,
+        daily_carbs_g: dailyCarbs,
+        daily_fat_g: dailyFat,
       }),
     })
 
@@ -172,18 +180,18 @@ export default function OnboardingPage() {
   const stepLabel = (
     <div className="mb-8">
       <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-3">
-        Step {currentStep} of 3
+        Step {currentStep} of 4
       </p>
       <div className="w-full bg-gray-200 rounded-full h-1.5">
         <div
           className="bg-[#2C7A4B] h-1.5 rounded-full transition-all duration-300"
-          style={{ width: `${(currentStep / 3) * 100}%` }}
+          style={{ width: `${(currentStep / 4) * 100}%` }}
         />
       </div>
     </div>
   )
 
-  const backButton = (targetStep: 1 | 2) => (
+  const backButton = (targetStep: 1 | 2 | 3) => (
     <button
       onClick={() => setCurrentStep(targetStep)}
       className="px-8 py-3 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 bg-white hover:bg-gray-50 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]"
@@ -301,7 +309,7 @@ export default function OnboardingPage() {
 
   // ── Step 3 ──────────────────────────────────────────────────────────────────
 
-  return (
+  if (currentStep === 3) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {stepLabel}
@@ -325,9 +333,87 @@ export default function OnboardingPage() {
               )
             })}
           </div>
-          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
           <div className="flex justify-between">
             {backButton(2)}
+            {selectedCuisines.length === 0 ? (
+              <button onClick={() => setCurrentStep(4)} className="text-sm font-medium text-gray-400 underline underline-offset-4 hover:text-gray-600 transition-colors duration-150 cursor-pointer">
+                Skip
+              </button>
+            ) : (
+              <button onClick={() => setCurrentStep(4)} className="px-8 py-3 rounded-xl text-sm font-semibold bg-[#2C7A4B] text-white hover:bg-[#235f3a] transition-all duration-150 cursor-pointer">
+                Next
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Step 4 ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-2xl">
+        {stepLabel}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Set your daily nutrition targets</h1>
+            <p className="text-gray-500 text-base">We&apos;ll use these to track your progress on the dashboard</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">Daily Calories</label>
+              <input
+                type="number"
+                min={500}
+                max={10000}
+                value={dailyCalories}
+                onChange={e => setDailyCalories(Number(e.target.value))}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+              />
+              <p className="text-xs text-gray-400">Total energy intake per day (kcal)</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">Daily Protein (g)</label>
+              <input
+                type="number"
+                min={0}
+                max={500}
+                value={dailyProtein}
+                onChange={e => setDailyProtein(Number(e.target.value))}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+              />
+              <p className="text-xs text-gray-400">Supports muscle repair and satiety</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">Daily Carbs (g)</label>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                value={dailyCarbs}
+                onChange={e => setDailyCarbs(Number(e.target.value))}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+              />
+              <p className="text-xs text-gray-400">Primary energy source for the body</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">Daily Fat (g)</label>
+              <input
+                type="number"
+                min={0}
+                max={500}
+                value={dailyFat}
+                onChange={e => setDailyFat(Number(e.target.value))}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+              />
+              <p className="text-xs text-gray-400">Essential for hormones and nutrient absorption</p>
+            </div>
+          </div>
+          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+          <div className="flex justify-between">
+            {backButton(3)}
             <button
               onClick={handleFinishSetup}
               disabled={loading}
