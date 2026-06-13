@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Already logged today',
-          message: 'You\'ve already marked this recipe as cooked today.',
+          message: "You've already marked this recipe as cooked today.",
           alreadyLogged: true,
         },
         { status: 409 }
