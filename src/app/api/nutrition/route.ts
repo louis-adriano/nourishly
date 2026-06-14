@@ -14,7 +14,7 @@ export async function GET() {
 
     const { data: logs, error: logsError } = await supabase
       .from('meal_logs')
-      .select('recipe_id, calories, protein_g, carbs_g, fat_g, logged_date')
+      .select('log_id, recipe_id, logged_date, calories, protein_g, carbs_g, fat_g, recipes(title)')
       .eq('user_id', user.id)
       .eq('logged_date', today)
 
@@ -51,7 +51,10 @@ export async function GET() {
           daily_carbs_g: profile.daily_carbs_g,
           daily_fat_g: profile.daily_fat_g,
         },
-        logs: logs ?? [],
+        logs: (logs ?? []).map(log => ({
+          ...log,
+          recipe_title: (log.recipes as unknown as { title: string } | null)?.title ?? null,
+        })),
       },
       { status: 200 },
     )

@@ -26,29 +26,6 @@ interface MealLog {
   calories: number;
 }
 
-// ── Mock data — replaced by Supabase fetch when FR06-01 owner wires the API ──
-
-const MOCK_TARGETS: NutritionTargets = {
-  calories: 2000,
-  protein: 150,
-  carbs: 200,
-  fat: 65,
-};
-
-const MOCK_TOTALS: NutritionTotals = {
-  calories: 1460,
-  protein: 118,
-  carbs: 172,
-  fat: 70, // intentionally over target to show red state
-};
-
-const MOCK_MEALS: MealLog[] = [
-  { log_id: "log-001", recipe_title: "Green Goddess Bowl", logged_time: "8:30 AM", calories: 420 },
-  { log_id: "log-002", recipe_title: "Grilled Salmon Plate", logged_time: "1:00 PM", calories: 580 },
-  { log_id: "log-003", recipe_title: "Quinoa Salad Bowl", logged_time: "3:30 PM", calories: 280 },
-  { log_id: "log-004", recipe_title: "Thai Coconut Chicken", logged_time: "7:00 PM", calories: 180 },
-];
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getBarColor(logged: number, target: number): string {
@@ -123,9 +100,9 @@ export default function DashboardPage() {
         setMeals(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (data.logs ?? []).map((log: any, i: number) => ({
-            log_id: `${log.recipe_id}-${i}`,
-            recipe_title: "Logged Meal",
-            logged_time: log.logged_date,
+            log_id: log.log_id ?? `${log.recipe_id}-${i}`,
+            recipe_title: log.recipe_title ?? "Logged Meal",
+            logged_time: "Logged today",
             calories: log.calories,
           }))
         );
@@ -175,7 +152,9 @@ export default function DashboardPage() {
         <div className="hero-text">
           <h1 className="greeting">{greeting}{userName ? `, ${userName}` : ""} 👋</h1>
           <p className="hero-sub">
-            {remaining > 0
+            {isLoading
+              ? "Loading your nutrition summary…"
+              : remaining > 0
               ? `You have ${remaining} kcal remaining today — keep it up!`
               : "You've hit your calorie target for today!"}
           </p>
@@ -247,7 +226,7 @@ export default function DashboardPage() {
       <section className="section">
         <div className="section-header">
           <h2 className="section-title">Today's Logged Meals</h2>
-          <span className="meal-count">{meals.length} meal{meals.length !== 1 ? "s" : ""}</span>
+          {!isLoading && <span className="meal-count">{meals.length} meal{meals.length !== 1 ? "s" : ""}</span>}
         </div>
 
         {isLoading ? null : meals.length === 0 ? (

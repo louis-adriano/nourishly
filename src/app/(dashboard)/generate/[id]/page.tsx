@@ -75,6 +75,10 @@ export default function RecipeDetailPage() {
   const [remaining, setRemaining] = useState(SUBSTITUTION_LIMIT);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  // ── Mark as Cooked state ────────────────────────────────────────────────────
+  const [cookState, setCookState] = useState<"idle" | "loading" | "logged">("idle");
+  const [cookError, setCookError] = useState<string | null>(null);
+
   // ── Fetch recipe ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
@@ -97,6 +101,18 @@ export default function RecipeDetailPage() {
         setLoading(false);
       });
   }, [id]);
+
+  // ── Check if already logged today on mount ─────────────────────────────────
+  useEffect(() => {
+    if (!recipe) return;
+    fetch("/api/meal-logs")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.logs?.some((log: { recipe_id: string }) => log.recipe_id === recipe.id)) {
+          setCookState("logged");
+        }
+      });
+  }, [recipe]);
 
   // ── Scroll chat to bottom on new messages ───────────────────────────────────
   useEffect(() => {
@@ -184,6 +200,36 @@ export default function RecipeDetailPage() {
       setMessages((prev) => [...prev, { role: "error", text: msg }]);
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  // ── Mark as Cooked ──────────────────────────────────────────────────────────
+  async function handleMarkAsCooked() {
+    if (!recipe || !nutrition) return;
+    setCookState("loading");
+    setCookError(null);
+    try {
+      const res = await fetch("/api/meal-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe_id: recipe.id,
+          calories: nutrition.calories,
+          protein_g: nutrition.protein_g,
+          carbs_g: nutrition.carbs_g,
+          fat_g: nutrition.fat_g,
+        }),
+      });
+      if (res.status === 201 || res.status === 409) {
+        setCookState("logged");
+        return;
+      }
+      const data = await res.json();
+      setCookError(data.error ?? "Something went wrong.");
+      setCookState("idle");
+    } catch {
+      setCookError("Network error — please try again.");
+      setCookState("idle");
     }
   }
 
@@ -314,6 +360,38 @@ export default function RecipeDetailPage() {
             ))}
           </div>
         </section>
+      </div>
+
+      {/* ── Mark as Cooked ── */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 40 }}>
+        <button
+          onClick={handleMarkAsCooked}
+          disabled={cookState !== "idle"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "12px 24px",
+            borderRadius: 12,
+            border: "none",
+            background: cookState === "logged" ? "#eaf4ee" : "#2C7A4B",
+            color: cookState === "logged" ? "#2C7A4B" : "#fff",
+            fontSize: 14,
+            fontWeight: 700,
+            fontFamily: "inherit",
+            cursor: cookState === "idle" ? "pointer" : "not-allowed",
+            opacity: cookState === "loading" ? 0.8 : 1,
+            transition: "background 0.15s ease",
+          }}
+        >
+          {cookState === "loading" && (
+            <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+          )}
+          {cookState === "logged" ? "Logged Today ✓" : "Mark as Cooked"}
+        </button>
+        {cookError && (
+          <p style={{ fontSize: 13, color: "#b03a3a", margin: 0 }}>{cookError}</p>
+        )}
       </div>
 
       {/* ── Cooking steps ── */}
