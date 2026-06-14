@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,17 +90,71 @@ function getCaloriesRemaining(logged: number, target: number): number {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [totals] = useState<NutritionTotals>(MOCK_TOTALS);
-  const [targets] = useState<NutritionTargets>(MOCK_TARGETS);
-  const [meals] = useState<MealLog[]>(MOCK_MEALS);
+  const [totals, setTotals] = useState<NutritionTotals>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [targets, setTargets] = useState<NutritionTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [meals, setMeals] = useState<MealLog[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    // Trigger bar animations after mount
     setMounted(true);
-    // FR06-01 owner wires Supabase fetch here:
-    // const data = await fetch("/api/nutrition?userId=...&date=today")
-    // setTotals(data.totals); setTargets(data.targets); setMeals(data.meals)
+
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+
+    async function fetchNutrition() {
+      try {
+        const res = await fetch("/api/nutrition");
+        if (!res.ok) return;
+        const data = await res.json();
+        setTotals({
+          calories: data.totals.calories,
+          protein: data.totals.protein_g,
+          carbs: data.totals.carbs_g,
+          fat: data.totals.fat_g,
+        });
+        setTargets({
+          calories: data.targets.daily_calories,
+          protein: data.targets.daily_protein_g,
+          carbs: data.targets.daily_carbs_g,
+          fat: data.targets.daily_fat_g,
+        });
+        setMeals(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data.logs ?? []).map((log: any, i: number) => ({
+            log_id: `${log.recipe_id}-${i}`,
+            recipe_title: "Logged Meal",
+            logged_time: log.logged_date,
+            calories: log.calories,
+          }))
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    async function setup() {
+      await fetchNutrition();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserName(user.user_metadata?.full_name || "");
+      supabase.removeChannel(supabase.channel("meal_logs_inserts"));
+      channel = supabase
+        .channel("meal_logs_inserts")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "meal_logs", filter: `user_id=eq.${user.id}` },
+          () => { fetchNutrition(); }
+        )
+        .subscribe();
+    }
+
+    setup();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   const remaining = getCaloriesRemaining(totals.calories, targets.calories);
@@ -118,7 +173,7 @@ export default function DashboardPage() {
       {/* ── Greeting + daily status ── */}
       <div className="hero">
         <div className="hero-text">
-          <h1 className="greeting">{greeting}, Jonathan 👋</h1>
+          <h1 className="greeting">{greeting}{userName ? `, ${userName}` : ""} 👋</h1>
           <p className="hero-sub">
             {remaining > 0
               ? `You have ${remaining} kcal remaining today — keep it up!`
@@ -136,7 +191,7 @@ export default function DashboardPage() {
       {/* ── Nutrition summary ── */}
       <section className="section">
         <h2 className="section-title">Nutrition Summary</h2>
-        <div className="bars-grid">
+        {isLoading ? null : <div className="bars-grid">
           {NUTRITION_BARS.map((bar, i) => {
             const color = getBarColor(bar.logged, bar.target);
             const bgColor = getBarBg(bar.logged, bar.target);
@@ -185,7 +240,7 @@ export default function DashboardPage() {
               </div>
             );
           })}
-        </div>
+        </div>}
       </section>
 
       {/* ── Today's logged meals ── */}
@@ -195,7 +250,7 @@ export default function DashboardPage() {
           <span className="meal-count">{meals.length} meal{meals.length !== 1 ? "s" : ""}</span>
         </div>
 
-        {meals.length === 0 ? (
+        {isLoading ? null : meals.length === 0 ? (
           <div className="meals-empty">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="12" r="10" fill="#eaf4ee" />
@@ -234,7 +289,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        )}
+        ) /* isLoading */}
       </section>
 
       <style jsx>{`
