@@ -172,7 +172,7 @@ export default function RegisterPage() {
 
             {serverError && <p className="field-error" role="alert">{serverError}</p>}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
+            <button type="submit" className="btn-primary submit-btn" disabled={loading}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
@@ -180,40 +180,48 @@ export default function RegisterPage() {
       </div>
 
       <style jsx>{`
-        .page { display: flex; min-height: 100vh; font-family: 'DM Sans', 'Nunito', sans-serif; background: #f7faf8; }
-        .panel-left { position: relative; width: 42%; background: #2C7A4B; display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
+        .page { display: flex; min-height: 100vh; font-family: var(--font-body), system-ui, sans-serif; background: var(--color-bg); }
+
+        .panel-left { position: relative; width: 42%; background: var(--color-green); display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
         .panel-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; }
-        .panel-blob--1 { width: 380px; height: 380px; background: #1a5c38; top: -100px; right: -80px; }
-        .panel-blob--2 { width: 300px; height: 300px; background: #4aaa72; bottom: -60px; left: -60px; }
+        .panel-blob--1 { width: 380px; height: 380px; background: var(--color-green-dark); top: -100px; right: -80px; }
+        .panel-blob--2 { width: 300px; height: 300px; background: #5a9070; bottom: -60px; left: -60px; }
         .panel-content { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 44px; width: 100%; }
+
         .panel-logo { display: flex; align-items: center; gap: 10px; }
-        .panel-logo-text { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+        .panel-logo-text { font-family: var(--font-display), system-ui, sans-serif; font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+
         .panel-tagline { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .panel-headline { font-size: clamp(32px, 3.5vw, 48px); font-weight: 800; color: #fff; line-height: 1.15; letter-spacing: -1px; margin: 0 0 16px; }
-        .panel-sub { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.6; max-width: 280px; margin: 0; }
+        .panel-headline { font-family: var(--font-display), system-ui, sans-serif; font-size: 2.5rem; font-weight: 800; color: #fff; line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 16px; }
+        .panel-sub { font-family: var(--font-body), system-ui, sans-serif; font-size: 1rem; color: rgba(255,255,255,0.75); line-height: 1.6; max-width: 280px; margin: 0; }
+
         .panel-dots { display: flex; gap: 8px; }
         .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); animation: pulse 2s ease-in-out infinite; }
+        .dot:first-child { background: #fff; }
         @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
-        .panel-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 32px; }
+
+        .panel-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 32px; background: var(--color-bg); }
         .form-card { width: 100%; max-width: 400px; }
         .form-header { margin-bottom: 32px; }
-        .form-title { font-size: 26px; font-weight: 800; color: #1a3a28; letter-spacing: -0.5px; margin: 0 0 8px; }
-        .form-subtitle { font-size: 14px; color: #7a9a88; margin: 0; }
-        .form-link { color: #2C7A4B; font-weight: 600; text-decoration: none; }
+        .form-title { font-family: var(--font-display), system-ui, sans-serif; font-size: 1.75rem; font-weight: 800; color: var(--color-text); letter-spacing: -0.03em; margin: 0 0 8px; }
+        .form-subtitle { font-size: 0.875rem; color: var(--color-text-3); margin: 0; }
+        .form-link { color: var(--color-green); font-weight: 600; text-decoration: none; }
         .form-link:hover { text-decoration: underline; }
+
         .form { display: flex; flex-direction: column; gap: 18px; }
         .field { display: flex; flex-direction: column; gap: 6px; }
-        .field-label { font-size: 13px; font-weight: 600; color: #2d4a3a; letter-spacing: 0.1px; }
-        .field-input { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid #d4e6da; background: #fff; font-size: 14px; color: #1a3a28; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none; box-sizing: border-box; }
-        .field-input::placeholder { color: #b0c8bb; }
-        .field-input:focus { border-color: #2C7A4B; box-shadow: 0 0 0 3px rgba(44,122,75,0.12); }
-        .field--error .field-input { border-color: #e05252; box-shadow: none; }
-        .field--error .field-input:focus { box-shadow: 0 0 0 3px rgba(224,82,82,0.12); }
-        .field-error { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #e05252; margin: 0; font-weight: 500; }
-        .submit-btn { margin-top: 6px; width: 100%; padding: 13px; border-radius: 10px; border: none; background: #2C7A4B; color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; letter-spacing: 0.1px; transition: background 0.15s ease, transform 0.1s ease; }
-        .submit-btn:hover { background: #245f3c; }
+        .field-label { font-size: 0.8rem; font-weight: 600; color: var(--color-text-2); display: flex; justify-content: space-between; align-items: center; }
+        .field-input { width: 100%; padding: 12px 16px; border-radius: 10px; border: 1.5px solid var(--color-border); background: #fff; font-size: 0.9rem; color: var(--color-text); font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none; box-sizing: border-box; }
+        .field-input::placeholder { color: var(--color-text-3); }
+        .field-input:focus { border-color: var(--color-green); box-shadow: 0 0 0 3px rgba(61,107,79,0.12); }
+        .field--error .field-input { border-color: var(--color-danger); box-shadow: none; }
+        .field--error .field-input:focus { box-shadow: 0 0 0 3px rgba(192,57,43,0.12); }
+        .field-error { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--color-danger); margin: 0; font-weight: 500; }
+
+        .submit-btn { margin-top: 6px; width: 100%; padding: 13px; font-size: 0.95rem; font-family: inherit; }
         .submit-btn:active { transform: scale(0.98); }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
         @media (max-width: 768px) { .panel-left { display: none; } }
       `}</style>
     </div>
