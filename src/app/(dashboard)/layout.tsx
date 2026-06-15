@@ -16,14 +16,16 @@ export default function DashboardLayout({
         .app-shell {
           display: flex;
           min-height: 100vh;
-          background: #f7faf8;
+          background: var(--color-bg);
         }
 
         .main-content {
           margin-left: 220px;
           flex: 1;
           min-height: 100vh;
-          padding: 32px 36px;
+          background: var(--color-bg);
+          padding: 40px 48px;
+          max-width: 1100px;
           overflow-y: auto;
         }
       `}</style>
