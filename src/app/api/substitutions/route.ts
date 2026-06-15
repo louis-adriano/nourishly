@@ -1,32 +1,20 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import groq from '@/lib/claude/client'
-
-// ─── Session-based substitution counter ───────────────────────────────────────
-// Stored in memory on the server. Resets if the server restarts (fine for dev
-// and capstone). For production you'd move this into a DB or Redis.
+import { createClient } from '@/lib/supabase/server'
 
 const SUBSTITUTION_LIMIT = 10
-
-// Map<sessionId, count>
-const substitutionCounts = new Map<string, number>()
-
-function getSessionId(): string {
-  const cookieStore = cookies()
-  let sessionId = cookieStore.get('substitution_session')?.value
-
-  if (!sessionId) {
-    // Generate a simple unique ID — no extra libraries needed
-    sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  }
-
-  return sessionId
-}
 
 // ─── POST /api/substitutions ──────────────────────────────────────────────────
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient()
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { userMessage, recipe } = body
 
@@ -38,17 +26,27 @@ export async function POST(request: Request) {
     }
 
     // ── Enforce substitution limit ──────────────────────────────────────────
-    const sessionId = getSessionId()
-    const currentCount = substitutionCounts.get(sessionId) ?? 0
+    const { count, error: countError } = await supabase
+      .from('substitutions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('recipe_id', recipe.id)
+
+    if (countError) {
+      return NextResponse.json({ error: countError.message }, { status: 500 })
+    }
+
+    const currentCount = count ?? 0
 
     if (currentCount >= SUBSTITUTION_LIMIT) {
       return NextResponse.json(
         {
           error: 'Substitution limit reached',
-          message: `You've used all ${SUBSTITUTION_LIMIT} substitutions for this session. Start a new session to get more suggestions.`,
+          message: `You've used all ${SUBSTITUTION_LIMIT} substitutions for this recipe.`,
           limitReached: true,
-          count: currentCount,
+          count: SUBSTITUTION_LIMIT,
           limit: SUBSTITUTION_LIMIT,
+          remaining: 0,
         },
         { status: 429 }
       )
@@ -85,15 +83,12 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
 
     const result = JSON.parse(message.choices[0].message.content ?? '{}')
 
-    // ── Increment count only after a successful Claude response ─────────────
+    // ── Return response with updated usage metadata ─────────────────────────
     const newCount = currentCount + 1
-    substitutionCounts.set(sessionId, newCount)
 
-    // ── Build response — set session cookie if this is a new session ────────
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         ...result,
-        // Include usage info so the frontend can show remaining count
         usage: {
           count: newCount,
           limit: SUBSTITUTION_LIMIT,
@@ -102,31 +97,40 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
       },
       { status: 200 }
     )
-
-    // Set the cookie if it didn't already exist
-    const cookieStore = cookies()
-    if (!cookieStore.get('substitution_session')?.value) {
-      response.cookies.set('substitution_session', sessionId, {
-        httpOnly: true,
-        sameSite: 'lax',
-        // Session cookie — expires when the browser is closed
-        path: '/',
-      })
-    }
-
-    return response
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Something went wrong'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
-// ─── GET /api/substitutions — check remaining count ───────────────────────────
-// Optional: lets the frontend poll how many substitutions are left.
+// ─── GET /api/substitutions?recipe_id=<id> — check remaining count ───────────
 
-export async function GET() {
-  const sessionId = getSessionId()
-  const currentCount = substitutionCounts.get(sessionId) ?? 0
+export async function GET(request: Request) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const recipe_id = searchParams.get('recipe_id')
+
+  if (!recipe_id) {
+    return NextResponse.json({ error: 'recipe_id is required' }, { status: 400 })
+  }
+
+  const { count, error: countError } = await supabase
+    .from('substitutions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('recipe_id', recipe_id)
+
+  if (countError) {
+    return NextResponse.json({ error: countError.message }, { status: 500 })
+  }
+
+  const currentCount = count ?? 0
 
   return NextResponse.json({
     count: currentCount,
