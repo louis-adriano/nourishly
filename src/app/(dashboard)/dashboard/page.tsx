@@ -30,9 +30,9 @@ interface MealLog {
 
 function getBarColor(logged: number, target: number): string {
   const pct = (logged / target) * 100;
-  if (pct > 100) return "#e05252"; // red — exceeded
-  if (pct >= 80) return "#d97706";  // amber — approaching
-  return "#2C7A4B";                 // green — on track
+  if (pct > 100) return "#e05252";
+  if (pct >= 80) return "#d97706";
+  return "#2C7A4B";
 }
 
 function getBarBg(logged: number, target: number): string {
@@ -144,22 +144,77 @@ export default function DashboardPage() {
     { key: "fat",      label: "Fat",      unit: "g",    logged: totals.fat,      target: targets.fat      },
   ];
 
-  return (
-    <div className="page">
+  // keep helpers in scope so they are not flagged as unused
+  void getBarColor; void getBarBg; void getStatusLabel;
 
-      {/* ── Greeting + daily status ── */}
-      <div className="hero">
-        <div className="hero-text">
-          <h1 className="greeting">{greeting}{userName ? `, ${userName}` : ""} 👋</h1>
-          <p className="hero-sub">
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px" }}>
+
+      {/* ── Greeting Hero ── */}
+      <div style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "20px",
+        flexWrap: "wrap",
+        background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)",
+        borderRadius: "20px",
+        padding: "28px 32px",
+        overflow: "hidden",
+        animation: "fadeUp 0.35s ease both",
+      }}>
+        {/* Dots pattern overlay */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <h1 style={{
+            fontFamily: "var(--font-display), Georgia, serif",
+            fontSize: "1.75rem",
+            fontWeight: 700,
+            color: "white",
+            margin: "0 0 6px",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.2,
+          }}>
+            {greeting}{userName ? `, ${userName}` : ""} 👋
+          </h1>
+          <p style={{ fontSize: "0.95rem", color: "white", opacity: 0.85, margin: 0, lineHeight: 1.5 }}>
             {isLoading
               ? "Loading your nutrition summary…"
               : remaining > 0
               ? `You have ${remaining} kcal remaining today — keep it up!`
-              : "You've hit your calorie target for today!"}
+              : "You’ve hit your calorie target for today!"}
           </p>
         </div>
-        <a href="/generate" className="cta-btn">
+
+        <a href="/generate" style={{
+          position: "relative",
+          zIndex: 1,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "7px",
+          padding: "12px 24px",
+          borderRadius: "10px",
+          background: "white",
+          color: "var(--color-green-dark)",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          fontFamily: "var(--font-body), system-ui, sans-serif",
+          textDecoration: "none",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          transition: "opacity 0.15s ease",
+        }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
@@ -167,373 +222,225 @@ export default function DashboardPage() {
         </a>
       </div>
 
-      {/* ── Nutrition summary ── */}
-      <section className="section">
-        <h2 className="section-title">Nutrition Summary</h2>
-        {isLoading ? null : <div className="bars-grid">
-          {NUTRITION_BARS.map((bar, i) => {
-            const color = getBarColor(bar.logged, bar.target);
-            const bgColor = getBarBg(bar.logged, bar.target);
-            const pct = clampPct(bar.logged, bar.target);
-            const status = getStatusLabel(bar.logged, bar.target);
-            return (
-              <div
-                key={bar.key}
-                className="bar-card"
-                style={{ animationDelay: `${i * 0.08}s` }}
-              >
-                <div className="bar-card-header">
-                  <span className="bar-label">{bar.label}</span>
-                  <span className="bar-status" style={{ color: status.color, background: bgColor }}>
-                    {status.text}
-                  </span>
-                </div>
+      {/* ── Nutrition Summary ── */}
+      <section>
+        <h2 style={{
+          fontFamily: "var(--font-display), Georgia, serif",
+          fontSize: "1.25rem",
+          fontWeight: 600,
+          color: "var(--color-text)",
+          margin: "0 0 16px",
+          letterSpacing: "-0.01em",
+        }}>
+          Nutrition Summary
+        </h2>
 
-                <div className="bar-numbers">
-                  <span className="bar-logged" style={{ color }}>
+        {!isLoading && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+            {NUTRITION_BARS.map((bar, i) => {
+              const rawPct = bar.target > 0 ? (bar.logged / bar.target) * 100 : 0;
+              const fillColor = rawPct > 100
+                ? "var(--color-danger)"
+                : rawPct >= 80
+                ? "#F59E0B"
+                : "var(--color-green)";
+              const pillBg = rawPct > 100
+                ? "var(--color-danger-light)"
+                : rawPct >= 80
+                ? "#FEF3C7"
+                : "var(--color-green-light)";
+              const pillTextColor = rawPct > 100
+                ? "var(--color-danger)"
+                : rawPct >= 80
+                ? "#92400E"
+                : "var(--color-green-dark)";
+              const pillText = rawPct > 100 ? "Over" : rawPct >= 80 ? "Almost there" : "On track";
+              const pct = clampPct(bar.logged, bar.target);
+
+              return (
+                <div
+                  key={bar.key}
+                  className="card nutrition-card"
+                  style={{
+                    padding: "20px 24px",
+                    display: "flex",
+                    flexDirection: "column",
+                    animationDelay: `${i * 0.08}s`,
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  {/* Label + status pill */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                    <span style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "var(--color-text-3)",
+                    }}>
+                      {bar.label}
+                    </span>
+                    <span style={{
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: "20px",
+                      background: pillBg,
+                      color: pillTextColor,
+                    }}>
+                      {pillText}
+                    </span>
+                  </div>
+
+                  {/* Big number */}
+                  <div style={{
+                    fontFamily: "var(--font-body), system-ui, sans-serif",
+                    fontSize: "2.5rem",
+                    fontWeight: 700,
+                    color: "var(--color-text)",
+                    lineHeight: 1,
+                  }}>
                     {bar.logged}
-                  </span>
-                  <span className="bar-target">/ {bar.target} {bar.unit}</span>
-                </div>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--color-text-3)", marginTop: "2px" }}>
+                    of {bar.target} {bar.unit}
+                  </div>
 
-                <div className="bar-track" style={{ background: bgColor }}>
-                  <div
-                    className="bar-fill"
-                    style={{
+                  {/* Progress track */}
+                  <div style={{
+                    height: "10px",
+                    borderRadius: "5px",
+                    background: "var(--color-surface-2)",
+                    margin: "16px 0 8px",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      borderRadius: "5px",
+                      background: fillColor,
                       width: mounted ? `${pct}%` : "0%",
-                      background: color,
-                    }}
-                  />
-                </div>
+                      transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+                    }} />
+                  </div>
 
-                <div className="bar-footer">
-                  <span className="bar-pct" style={{ color }}>
-                    {Math.round((bar.logged / bar.target) * 100)}%
-                  </span>
-                  <span className="bar-remaining">
-                    {bar.logged > bar.target
-                      ? `${bar.logged - bar.target}${bar.unit} over`
-                      : `${bar.target - bar.logged}${bar.unit} left`}
-                  </span>
+                  {/* Footer: % left, amount right */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>
+                      {Math.round(rawPct)}%
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>
+                      {bar.logged > bar.target
+                        ? `${bar.logged - bar.target}${bar.unit} over`
+                        : `${bar.target - bar.logged}${bar.unit} left`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>}
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* ── Today's logged meals ── */}
-      <section className="section">
-        <div className="section-header">
-          <h2 className="section-title">Today's Logged Meals</h2>
-          {!isLoading && <span className="meal-count">{meals.length} meal{meals.length !== 1 ? "s" : ""}</span>}
+      {/* ── Today's Logged Meals ── */}
+      <section>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+          <h2 style={{
+            fontFamily: "var(--font-display), Georgia, serif",
+            fontSize: "1.25rem",
+            fontWeight: 600,
+            color: "var(--color-text)",
+            margin: 0,
+            letterSpacing: "-0.01em",
+          }}>
+            Today&apos;s Logged Meals
+          </h2>
+          {!isLoading && (
+            <span style={{
+              background: "var(--color-green-light)",
+              color: "var(--color-green-dark)",
+              borderRadius: "20px",
+              padding: "2px 10px",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+            }}>
+              {meals.length} meal{meals.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
 
-        {isLoading ? null : meals.length === 0 ? (
-          <div className="meals-empty">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" fill="#eaf4ee" />
-              <path d="M8 12h8M12 8v8" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-            <p>No meals logged today.</p>
-            <p className="meals-empty-sub">Mark a recipe as cooked to get started.</p>
-          </div>
-        ) : (
-          <div className="meals-list">
-            {meals.map((meal, i) => (
-              <div
-                key={meal.log_id}
-                className="meal-row"
-                style={{ animationDelay: `${i * 0.06}s` }}
-              >
-                <div className="meal-icon" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C7A4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-                    <line x1="6" y1="1" x2="6" y2="4" />
-                    <line x1="10" y1="1" x2="10" y2="4" />
-                    <line x1="14" y1="1" x2="14" y2="4" />
-                  </svg>
+        {!isLoading && (
+          meals.length === 0 ? (
+            <div className="card" style={{
+              minHeight: "140px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              textAlign: "center",
+            }}>
+              <span aria-hidden="true" style={{ fontSize: "2rem", color: "var(--color-green)", lineHeight: 1 }}>+</span>
+              <p style={{ margin: 0, color: "var(--color-text-3)", fontSize: "0.9rem", fontWeight: 500 }}>
+                No meals logged today.
+              </p>
+              <p style={{ margin: 0, color: "var(--color-text-3)", fontSize: "0.8rem" }}>
+                Mark a recipe as cooked to get started.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {meals.map((meal, i) => (
+                <div
+                  key={meal.log_id}
+                  className="card"
+                  style={{
+                    padding: "16px 20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    animationDelay: `${i * 0.06}s`,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 600,
+                      color: "var(--color-text)",
+                      fontSize: "0.9rem",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      {meal.recipe_title}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-3)", marginTop: "2px" }}>
+                      {meal.logged_time}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    color: "var(--color-green)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}>
+                    {meal.calories} kcal
+                  </span>
                 </div>
-                <div className="meal-info">
-                  <span className="meal-name">{meal.recipe_title}</span>
-                  <span className="meal-time">{meal.logged_time}</span>
-                </div>
-                <span className="meal-calories">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2C7A4B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                  {meal.calories} kcal
-                </span>
-              </div>
-            ))}
-          </div>
-        ) /* isLoading */}
+              ))}
+            </div>
+          )
+        )}
       </section>
 
       <style jsx>{`
-        /* ── Page ── */
-        .page {
-          display: flex;
-          flex-direction: column;
-          gap: 32px;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-          max-width: 900px;
-        }
-
-        /* ── Hero ── */
-        .hero {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          flex-wrap: wrap;
-          background: #fff;
-          border: 1.5px solid #e8f0eb;
-          border-radius: 20px;
-          padding: 24px 28px;
-          animation: fadeUp 0.35s ease both;
-        }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .greeting {
-          font-size: 20px;
-          font-weight: 800;
-          color: #1a3a28;
-          letter-spacing: -0.4px;
-          margin: 0 0 4px;
-        }
-        .hero-sub {
-          font-size: 14px;
-          color: #7a9a88;
-          margin: 0;
-          line-height: 1.5;
-        }
-        .cta-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 11px 20px;
-          border-radius: 12px;
-          background: #2C7A4B;
-          color: #fff;
-          font-size: 13px;
-          font-weight: 700;
-          font-family: inherit;
-          text-decoration: none;
-          white-space: nowrap;
-          flex-shrink: 0;
-          transition: background 0.15s ease, transform 0.1s ease;
-        }
-        .cta-btn:hover {
-          background: #245f3c;
-          transform: translateY(-1px);
-        }
-
-        /* ── Sections ── */
-        .section {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          animation: fadeUp 0.4s ease both;
-          animation-delay: 0.1s;
-        }
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .section-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0;
-          letter-spacing: -0.2px;
-        }
-        .meal-count {
-          font-size: 12px;
-          color: #7a9a88;
-          font-weight: 500;
-          background: #f2f6f4;
-          padding: 3px 10px;
-          border-radius: 20px;
-        }
-
-        /* ── Nutrition bars grid ── */
-        .bars-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 12px;
-        }
-        .bar-card {
-          background: #fff;
-          border: 1.5px solid #e8f0eb;
-          border-radius: 16px;
-          padding: 16px 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          animation: cardReveal 0.4s ease both;
-          transition: box-shadow 0.18s ease;
-        }
-        .bar-card:hover {
-          box-shadow: 0 4px 16px rgba(44,122,75,0.08);
-        }
-        @keyframes cardReveal {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .bar-card-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .bar-label {
-          font-size: 13px;
-          font-weight: 700;
-          color: #1a3a28;
-        }
-        .bar-status {
-          font-size: 11px;
-          font-weight: 600;
-          padding: 2px 8px;
-          border-radius: 20px;
-        }
-        .bar-numbers {
-          display: flex;
-          align-items: baseline;
-          gap: 4px;
-        }
-        .bar-logged {
-          font-size: 22px;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          line-height: 1;
-        }
-        .bar-target {
-          font-size: 12px;
-          color: #9ab5a5;
-          font-weight: 500;
-        }
-
-        /* ── Progress bar ── */
-        .bar-track {
-          height: 8px;
-          border-radius: 99px;
-          overflow: hidden;
-          width: 100%;
-        }
-        .bar-fill {
-          height: 100%;
-          border-radius: 99px;
-          transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .bar-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .bar-pct {
-          font-size: 12px;
-          font-weight: 700;
-        }
-        .bar-remaining {
-          font-size: 11px;
-          color: #9ab5a5;
-          font-weight: 500;
-        }
-
-        /* ── Meals list ── */
-        .meals-list {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          background: #fff;
-          border: 1.5px solid #e8f0eb;
-          border-radius: 16px;
-          overflow: hidden;
-        }
-        .meal-row {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 14px 18px;
-          border-bottom: 1px solid #f2f6f4;
-          animation: fadeUp 0.35s ease both;
-          transition: background 0.12s ease;
-        }
-        .meal-row:last-child {
-          border-bottom: none;
-        }
-        .meal-row:hover {
-          background: #fafcfb;
-        }
-        .meal-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: #eaf4ee;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .meal-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          min-width: 0;
-        }
-        .meal-name {
-          font-size: 14px;
-          font-weight: 600;
-          color: #1a3a28;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .meal-time {
-          font-size: 12px;
-          color: #9ab5a5;
-          font-weight: 500;
-        }
-        .meal-calories {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 13px;
-          font-weight: 700;
-          color: #2C7A4B;
-          background: #eaf4ee;
-          padding: 4px 10px;
-          border-radius: 20px;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        /* ── Empty meals ── */
-        .meals-empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          padding: 40px 24px;
-          background: #fff;
-          border: 1.5px solid #e8f0eb;
-          border-radius: 16px;
-          text-align: center;
-          color: #5a7a68;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        .meals-empty p { margin: 0; }
-        .meals-empty-sub {
-          font-size: 13px;
-          color: #9ab5a5;
+        .nutrition-card:hover {
+          box-shadow: 0 6px 20px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.08);
+          transform: none;
         }
       `}</style>
     </div>

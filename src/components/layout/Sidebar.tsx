@@ -73,59 +73,131 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      height: "100vh",
+      width: "220px",
+      background: "var(--color-surface)",
+      borderRight: "1px solid var(--color-border)",
+      display: "flex",
+      flexDirection: "column",
+      zIndex: 50,
+      fontFamily: "var(--font-body), system-ui, sans-serif",
+    }}>
+
       {/* Logo */}
-      <div className="sidebar-logo">
-        <span className="logo-icon">
+      <div style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: "10px",
+        padding: "20px 16px 12px",
+        borderBottom: "1px solid var(--color-border)",
+        marginBottom: "8px",
+      }}>
+        <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" fill="#2C7A4B" />
-            <path
-              d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path
-              d="M12 8v8"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
+            <circle cx="12" cy="12" r="10" fill="#4A7C59" />
+            <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </span>
-        <span className="logo-wordmark">Nourishly</span>
+        <span style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: "1.1rem",
+          color: "var(--color-green-dark)",
+          letterSpacing: "-0.3px",
+        }}>
+          Nourishly
+        </span>
       </div>
 
       {/* Nav Links */}
-      <nav className="sidebar-nav">
+      <nav style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 12px" }}>
         {NAV_LINKS.map(({ href, label, icon }) => {
           const isActive = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
-              className={`nav-link${isActive ? " nav-link--active" : ""}`}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                textDecoration: "none",
+                backgroundColor: isActive ? "var(--color-green-light)" : "transparent",
+                color: isActive ? "var(--color-green-dark)" : "var(--color-text-2)",
+                fontWeight: isActive ? 600 : 500,
+                fontSize: "0.875rem",
+                transition: "background 0.15s ease",
+              }}
             >
-              <span className="nav-icon">{icon}</span>
-              <span className="nav-label">{label}</span>
-              {isActive && <span className="nav-indicator" />}
+              <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                {icon}
+              </span>
+              <span>{label}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* Spacer */}
-      <div className="sidebar-spacer" />
+      <div style={{ flex: 1 }} />
 
-      {/* User + Logout — wired by auth owner (FR-01) */}
-      <div className="sidebar-footer">
-        <div className="user-info">
-          <div className="user-avatar">{fullName.charAt(0).toUpperCase()}</div>
-          <div className="user-details">
-            <p className="user-name">{fullName}</p>
-            <p className="user-email">{email}</p>
+      {/* User + Logout */}
+      <div style={{ borderTop: "1px solid var(--color-border)", padding: "12px 16px" }}>
+        <div style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: "10px",
+          marginBottom: "8px",
+        }}>
+          <div style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            background: "var(--color-green)",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: "0.85rem",
+            flexShrink: 0,
+          }}>
+            {fullName.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+            <span style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--color-text)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}>
+              {fullName}
+            </span>
+            <span style={{
+              fontSize: "0.7rem",
+              color: "var(--color-text-3)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "140px",
+            }}>
+              {email}
+            </span>
           </div>
         </div>
+
         <button className="logout-btn" type="button" onClick={handleLogOut}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -137,135 +209,6 @@ export default function Sidebar() {
       </div>
 
       <style jsx>{`
-        .sidebar {
-          position: fixed;
-          top: 0;
-          left: 0;
-          height: 100vh;
-          width: 220px;
-          background: #ffffff;
-          border-right: 1px solid #e8f0eb;
-          display: flex;
-          flex-direction: column;
-          padding: 24px 0 20px;
-          z-index: 50;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-
-        /* Logo */
-        .sidebar-logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 0 20px 28px;
-          border-bottom: 1px solid #e8f0eb;
-          margin-bottom: 16px;
-        }
-        .logo-icon {
-          display: flex;
-          align-items: center;
-        }
-        .logo-wordmark {
-          font-size: 17px;
-          font-weight: 700;
-          color: #1a3a28;
-          letter-spacing: -0.3px;
-        }
-
-        /* Nav */
-        .sidebar-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 0 12px;
-        }
-        .nav-link {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          color: #5a7a68;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 500;
-          position: relative;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-        .nav-link:hover {
-          background: #f0f7f3;
-          color: #2C7A4B;
-        }
-        .nav-link--active {
-          background: #eaf4ee;
-          color: #2C7A4B;
-          font-weight: 600;
-        }
-        .nav-icon {
-          display: flex;
-          align-items: center;
-          flex-shrink: 0;
-        }
-        .nav-label {
-          flex: 1;
-        }
-        .nav-indicator {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #2C7A4B;
-          flex-shrink: 0;
-        }
-
-        /* Spacer */
-        .sidebar-spacer {
-          flex: 1;
-        }
-
-        /* Footer */
-        .sidebar-footer {
-          padding: 16px 16px 0;
-          border-top: 1px solid #e8f0eb;
-        }
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-        .user-avatar {
-          width: 34px;
-          height: 34px;
-          border-radius: 50%;
-          background: #2C7A4B;
-          color: #fff;
-          font-size: 13px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .user-details {
-          min-width: 0;
-        }
-        .user-name {
-          font-size: 13px;
-          font-weight: 600;
-          color: #1a3a28;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .user-email {
-          font-size: 11px;
-          color: #8aab98;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
         .logout-btn {
           display: flex;
           align-items: center;
@@ -275,16 +218,16 @@ export default function Sidebar() {
           border-radius: 8px;
           border: none;
           background: transparent;
-          color: #8aab98;
-          font-size: 13px;
+          color: var(--color-text-3);
+          font-size: 0.8rem;
           font-weight: 500;
           cursor: pointer;
           transition: background 0.15s ease, color 0.15s ease;
           font-family: inherit;
         }
         .logout-btn:hover {
-          background: #fef2f2;
-          color: #dc2626;
+          background: var(--color-danger-light);
+          color: var(--color-danger);
         }
       `}</style>
     </aside>

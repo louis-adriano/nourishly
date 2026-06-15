@@ -2,23 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg:             #F7F5F0;
+  --color-surface:        #FFFFFF;
+  --color-surface-2:      #F0EDE6;
+  --color-green:          #4A7C59;
+  --color-green-light:    #E8F0EB;
+  --color-green-dark:     #2C5F3E;
+  --color-accent:         #C17F4A;
+  --color-accent-light:   #FAF0E6;
+  --color-text:           #2C2C2C;
+  --color-text-2:         #5C5C5C;
+  --color-text-3:         #9C9C9C;
+  --color-border:         #E2DDD6;
+  --color-danger:         #C0392B;
+  --color-danger-light:   #FDECEA;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+
+html {
+  font-family: var(--font-body), system-ui, sans-serif;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
+
+/* ── Typography scale ───────────────────────────────────────────────────────── */
+
+h1, h2, h3 {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.03em;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+p {
+  color: var(--color-text-2);
+  line-height: 1.6;
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--color-surface);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background: var(--color-green);
+  color: white;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-primary:hover {
+  background: var(--color-green-dark);
+}
+
+.btn-secondary {
+  background: var(--color-green-light);
+  color: var(--color-green-dark);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--color-border);
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────────── */
 
 @layer utilities {
   .text-balance {
