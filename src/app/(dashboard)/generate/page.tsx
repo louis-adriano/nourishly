@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -98,6 +98,44 @@ export default function GeneratePage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [previousTitles, setPreviousTitles] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/saved-recipes")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.recipes) {
+          setSavedIds(new Set(data.recipes.map((r: { recipe_id: string }) => r.recipe_id)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleToggleSave(recipeId: string) {
+    if (savedIds.has(recipeId)) {
+      const res = await fetch("/api/saved-recipes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok) {
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(recipeId);
+          return next;
+        });
+      }
+    } else {
+      const res = await fetch("/api/saved-recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok || res.status === 409) {
+        setSavedIds((prev) => new Set([...prev, recipeId]));
+      }
+    }
+  }
 
   // Preferences modal state
   const [prefsOpen, setPrefsOpen] = useState(false);
@@ -312,7 +350,7 @@ export default function GeneratePage() {
         {pageState === "idle"    && <EmptyState onGenerate={handleGenerate} />}
         {pageState === "loading" && <LoadingState />}
         {pageState === "error"   && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
-        {pageState === "done"    && <RecipeGrid recipes={recipes} />}
+        {pageState === "done"    && <RecipeGrid recipes={recipes} savedIds={savedIds} onToggleSave={handleToggleSave} />}
       </div>
 
       {/* ── Preferences Modal ── */}
@@ -472,7 +510,7 @@ export default function GeneratePage() {
 
 // ── Recipe grid ───────────────────────────────────────────────────────────────
 
-function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
+function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; savedIds: Set<string>; onToggleSave: (id: string) => void }) {
   const router = useRouter();
 
   return (
@@ -488,6 +526,8 @@ function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
             recipe={recipe}
             index={i}
             onClick={() => router.push(`/generate/${recipe.id}`)}
+            isSaved={savedIds.has(recipe.id)}
+            onToggleSave={() => onToggleSave(recipe.id)}
           />
         ))}
       </div>
@@ -512,51 +552,90 @@ function RecipeCard({
   recipe,
   index,
   onClick,
+  isSaved,
+  onToggleSave,
 }: {
   recipe: Recipe;
   index: number;
   onClick: () => void;
+  isSaved: boolean;
+  onToggleSave: () => void;
 }) {
   const emoji   = getRecipeEmoji(recipe.title);
   const cuisine = getRecipeCuisine(recipe);
 
   return (
-    <button
-      className="recipe-card"
-      onClick={onClick}
-      type="button"
-      style={{ animationDelay: `${index * 0.08}s` }}
-    >
-      {/* Top section */}
-      <div className="card-top">
-        <div className="card-top-row">
-          <span className="cuisine-tag">{cuisine}</span>
-          <span className="card-emoji" aria-hidden="true">{emoji}</span>
-        </div>
-      </div>
-
-      {/* Bottom section */}
-      <div className="card-bottom">
-        <h3 className="card-title">{recipe.title}</h3>
-        <p className="card-description">{recipe.description}</p>
-
-        {recipe.ingredients && recipe.ingredients.length > 0 && (
-          <div className="ingredient-pills">
-            {recipe.ingredients.slice(0, 2).map((ing, i) => (
-              <span key={i} className="ingredient-pill">
-                {typeof ing === "string" ? ing : ing.name}
-              </span>
-            ))}
+    <div style={{ position: "relative" }}>
+      <div
+        className="recipe-card"
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+        style={{ animationDelay: `${index * 0.08}s` }}
+      >
+        {/* Top section */}
+        <div className="card-top">
+          <div className="card-top-row">
+            <span className="cuisine-tag">{cuisine}</span>
+            <span className="card-emoji" aria-hidden="true">{emoji}</span>
           </div>
-        )}
-
-        <div className="card-meta">
-          <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
-          <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
         </div>
 
-        <div className="card-view">View recipe →</div>
+        {/* Bottom section */}
+        <div className="card-bottom">
+          <h3 className="card-title">{recipe.title}</h3>
+          <p className="card-description">{recipe.description}</p>
+
+          {recipe.ingredients && recipe.ingredients.length > 0 && (
+            <div className="ingredient-pills">
+              {recipe.ingredients.slice(0, 2).map((ing, i) => (
+                <span key={i} className="ingredient-pill">
+                  {typeof ing === "string" ? ing : ing.name}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="card-meta">
+            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+            <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
+          </div>
+
+          <div className="card-view">View recipe →</div>
+        </div>
       </div>
+
+      {/* Bookmark button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+        aria-label={isSaved ? "Unsave recipe" : "Save recipe"}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          background: isSaved ? "var(--color-green-light)" : "white",
+          border: `1.5px solid ${isSaved ? "var(--color-green)" : "var(--color-border)"}`,
+          borderRadius: 8,
+          padding: 6,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1,
+        }}
+      >
+        {isSaved ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-green)" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        )}
+      </button>
 
       <style jsx>{`
         .recipe-card {
@@ -573,8 +652,6 @@ function RecipeCard({
           flex-direction: column;
           animation: cardReveal 0.4s ease both;
           transition: all 0.2s ease;
-          -webkit-appearance: none;
-          appearance: none;
         }
         @keyframes cardReveal {
           from { opacity: 0; transform: translateY(16px); }
@@ -683,7 +760,7 @@ function RecipeCard({
           padding-top: 10px;
         }
       `}</style>
-    </button>
+    </div>
   );
 }
 
