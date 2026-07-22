@@ -43,6 +43,8 @@ export default function RegisterPage() {
   const [touched, setTouched] = useState<Partial<Record<keyof FormFields, boolean>>>({})
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsError, setTermsError] = useState(false)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
@@ -68,6 +70,12 @@ export default function RegisterPage() {
     const newErrors = validateForm(fields)
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) return
+
+    if (!termsAccepted) {
+      setTermsError(true)
+      return
+    }
+    setTermsError(false)
 
     setLoading(true)
     setServerError('')
@@ -170,9 +178,31 @@ export default function RegisterPage() {
               )}
             </div>
 
+            <div style={{ marginBottom: 4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={e => { setTermsAccepted(e.target.checked); if (e.target.checked) setTermsError(false) }}
+                  style={{ width: 16, height: 16, accentColor: 'var(--color-green)', cursor: 'pointer', flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-2)' }}>
+                  I agree to the{' '}
+                  <Link href="/terms" className="form-link">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link href="/privacy" className="form-link">Privacy Policy</Link>
+                </span>
+              </label>
+              {termsError && (
+                <p style={{ color: 'var(--color-danger)', fontSize: '0.8rem', marginTop: 4, marginBottom: 0 }}>
+                  You must agree to the Terms of Service and Privacy Policy to continue.
+                </p>
+              )}
+            </div>
+
             {serverError && <p className="field-error" role="alert">{serverError}</p>}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
+            <button type="submit" className="submit-btn" disabled={loading || !termsAccepted}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
