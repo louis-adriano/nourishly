@@ -25,6 +25,7 @@ interface Nutrition {
 interface RawRecipe {
   title?: unknown
   description?: unknown
+  cuisine?: unknown
   cook_time_mins?: unknown
   ingredients?: unknown
   steps?: unknown
@@ -34,6 +35,7 @@ interface RawRecipe {
 interface ValidRecipe {
   title: string
   description: string
+  cuisine?: string
   cook_time_mins: number
   ingredients: Ingredient[]
   steps: Step[]
@@ -61,8 +63,12 @@ function isValidRecipe(r: RawRecipe): r is RawRecipe & ValidRecipe {
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const body = await request.json().catch(() => ({}))
+    const activeFilters: string[] = body.activeFilters ?? []
+    const previousTitles: string[] = body.previousTitles ?? []
+
     const supabase = await createClient()
 
     // 1. Auth
@@ -86,6 +92,32 @@ export async function POST() {
     }
 
     // 3. Prompt
+    const varietyInstructions = [
+      'Focus on bold, flavourful dishes with complex seasoning.',
+      'Focus on quick and simple weeknight meals.',
+      'Focus on hearty, filling dishes with whole ingredients.',
+      'Focus on light, fresh dishes with vibrant ingredients.',
+      'Focus on comfort food that still meets the health goal.',
+      'Focus on dishes with interesting textures and contrasting flavours.',
+    ]
+    const varietyHint = varietyInstructions[Math.floor(Math.random() * varietyInstructions.length)]
+
+    const previousTitlesNote = previousTitles.length > 0
+      ? `The user has already seen these recipes — do NOT generate any of them again or anything too similar: ${previousTitles.join(', ')}.`
+      : ''
+
+    const allPossibleFilters = ["Weight Loss", "Vegetarian", "Korean", "Japanese",
+      "Italian", "Mexican", "Indian", "Thai", "Mediterranean", "American"]
+
+    const inactiveFilters = allPossibleFilters.filter(f => !activeFilters.includes(f))
+
+    const filterNote = activeFilters.length > 0
+      ? `The user has selected these active filters: ${activeFilters.join(", ")}. You MUST respect these filters strictly.
+     ${inactiveFilters.length > 0
+       ? `The user has explicitly turned OFF: ${inactiveFilters.join(", ")}. Do NOT generate recipes matching these turned-off filters. For example if "Vegetarian" is turned off, include meat or fish.`
+       : ""}`
+      : "Generate varied recipes based on the user profile."
+
     const restrictions =
       Array.isArray(profile.dietary_restrictions) && profile.dietary_restrictions.length > 0
         ? profile.dietary_restrictions.join(', ')
@@ -96,14 +128,29 @@ export async function POST() {
         ? profile.cuisine_preferences.join(', ')
         : 'Any'
 
-    const prompt = `You are a professional nutritionist and chef. Generate exactly 4 personalised recipes based on the following user profile:
+    const prompt = `You are a professional chef and nutritionist with deep knowledge of authentic cuisines. Generate exactly 4 personalised recipes based on this profile:
+
 Health goal: ${profile.health_goal}
 Dietary restrictions: ${restrictions}
 Cuisine preferences: ${cuisines}
 
-Return ONLY a valid JSON array with exactly 4 recipe objects. Each object must have these exact fields:
+${filterNote}
+${varietyHint}
+${previousTitlesNote}
+
+STRICT RECIPE QUALITY REQUIREMENTS:
+- Each recipe must have 8-15 ingredients minimum
+- Ingredients must be specific and authentic (e.g. "Sichuan peppercorns", "gochujang paste", "fish sauce") — not generic (e.g. "spices", "seasoning")
+- Steps must be detailed and reflect real cooking technique — at least 5 steps per recipe
+- Recipes must be authentically prepared — if it's Kung Pao it needs dried chilies, Sichuan peppercorns, the proper sauce (soy, vinegar, sugar, cornstarch)
+- Each recipe must include a cuisine field indicating its origin cuisine
+- Each of the 4 recipes must be distinctly different — vary proteins, cooking methods, and flavour profiles. No repeating the same dish across generations.
+
+Return ONLY a valid JSON array with exactly 4 recipe objects.
+Each object must have these exact fields:
 - title: string
 - description: string (one sentence about the dish)
+- cuisine: string (e.g. "Korean", "Chinese", "Italian", "Mexican")
 - cook_time_mins: number
 - ingredients: array of objects with { name: string, quantity: string, unit: string }
 - steps: array of objects with { step_number: number, instruction: string }
@@ -119,6 +166,7 @@ Do not include any text before or after the JSON array.`
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 4000,
+        temperature: 0.9,
       })
       console.log('[recipes] Groq response:', {
         content: groqResponse.choices[0].message.content,
@@ -172,6 +220,7 @@ Do not include any text before or after the JSON array.`
     const rows = valid.map(recipe => ({
       user_id: user.id,
       title: recipe.title,
+      cuisine: recipe.cuisine ?? null,
       ingredients_json: recipe.ingredients,
       steps_json: recipe.steps,
       cook_time_mins: recipe.cook_time_mins,
@@ -203,6 +252,7 @@ Do not include any text before or after the JSON array.`
       id: row.recipe_id,
       title: row.title,
       description: valid[i].description,
+      cuisine: valid[i].cuisine ?? null,
       cook_time_mins: row.cook_time_mins,
       ingredients: row.ingredients_json,
       steps: row.steps_json,

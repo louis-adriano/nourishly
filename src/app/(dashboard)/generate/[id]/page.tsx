@@ -68,6 +68,13 @@ export default function RecipeDetailPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [nutrition, setNutrition] = useState<Nutrition | null>(null);
 
+  // ── Substituted ingredient tracking ────────────────────────────────────────
+  const [substitutedIngredients, setSubstitutedIngredients] = useState<Set<number>>(new Set());
+
+  // ── Live steps state (may be regenerated after substitution) ───────────────
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [stepsLoading, setStepsLoading] = useState(false);
+
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -94,6 +101,7 @@ export default function RecipeDetailPage() {
         setRecipe(data.recipe);
         setIngredients(data.recipe.ingredients);
         setNutrition(data.recipe.nutrition);
+        setSteps(data.recipe.steps);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -143,6 +151,7 @@ export default function RecipeDetailPage() {
       });
 
       const data = await res.json();
+      console.log('[sub] data:', JSON.stringify(data));
 
       if (res.status === 429) {
         // Hit the session limit
@@ -167,15 +176,26 @@ export default function RecipeDetailPage() {
       // Jonathan's API returns the substitute name — find the ingredient
       // mentioned in the user message and swap it out by name match.
       if (data.substitute) {
-        setIngredients((prev) =>
-          prev.map((ing) => {
-            const userMsgLower = trimmed.toLowerCase();
-            if (userMsgLower.includes(ing.name.toLowerCase())) {
-              return { ...ing, name: data.substitute };
-            }
-            return ing;
-          })
-        );
+        const updatedIngredients = ingredients.map((ing, index) => {
+          const ingredientWords = ing.name.toLowerCase().split(' ');
+          const msgLower = trimmed.toLowerCase();
+          const msgWords = msgLower.split(' ');
+          const matches =
+            ingredientWords.some(word => word.length > 2 && msgLower.includes(word)) ||
+            msgWords.some(word => word.length > 2 && ing.name.toLowerCase().includes(word));
+          if (matches) {
+            setSubstitutedIngredients(prev => new Set([...prev, index]));
+            return {
+              ...ing,
+              name: data.substitute,
+              quantity: data.substituteQuantity ?? ing.quantity,
+              unit: data.substituteUnit ?? ing.unit,
+            };
+          }
+          return ing;
+        });
+        setIngredients(updatedIngredients);
+        void regenerateSteps(updatedIngredients);
       }
 
       // ── Update nutrition ────────────────────────────────────────────────────
@@ -200,6 +220,26 @@ export default function RecipeDetailPage() {
       setMessages((prev) => [...prev, { role: "error", text: msg }]);
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  // ── Regenerate cooking steps after substitution ─────────────────────────────
+  async function regenerateSteps(updatedIngredients: Ingredient[]) {
+    if (!recipe) return;
+    setStepsLoading(true);
+    try {
+      const res = await fetch('/api/substitutions/steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipe_title: recipe.title, ingredients: updatedIngredients }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.steps) setSteps(data.steps);
+    } catch {
+      // silently fail — original steps remain
+    } finally {
+      setStepsLoading(false);
     }
   }
 
@@ -330,6 +370,11 @@ export default function RecipeDetailPage() {
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#2C7A4B", flexShrink: 0 }} />
                 <span style={{ fontSize: 14, color: "#1a3a28", fontWeight: 500 }}>
                   {[ing.quantity, ing.unit, ing.name].filter(Boolean).join(" ")}
+                  {substitutedIngredients.has(i) && (
+                    <span style={{ background: "var(--color-green-light)", color: "var(--color-green-dark)", borderRadius: 4, padding: "2px 6px", fontSize: "0.65rem", fontWeight: 600, marginLeft: 6, verticalAlign: "middle" }}>
+                      Substituted
+                    </span>
+                  )}
                 </span>
               </li>
             ))}
@@ -404,9 +449,12 @@ export default function RecipeDetailPage() {
             </svg>
           </span>
           Cooking Steps
+          {stepsLoading && (
+            <span style={{ fontSize: "0.8rem", fontWeight: 400, color: "var(--color-text-3)", marginLeft: 8 }}>Updating steps...</span>
+          )}
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {recipe.steps.map((step) => (
+          {steps.map((step) => (
             <div
               key={step.step_number}
               style={{ display: "flex", gap: 16, padding: "16px 18px", borderRadius: 12, background: "#fff", border: "1.5px solid #e8f0eb" }}

@@ -9,6 +9,7 @@ interface Recipe {
   id: string;
   title: string;
   description: string;
+  cuisine?: string;
   cook_time_mins: number;
   ingredients?: Array<string | { name: string; unit?: string; quantity?: number | string }>;
   nutrition: {
@@ -23,18 +24,22 @@ interface Recipe {
 
 function getRecipeEmoji(title: string): string {
   const t = title.toLowerCase();
+  if (/soup|stew|broth|curry/.test(t)) return "🍲";
+  if (/noodle|ramen|pasta|spaghetti|glass noodles/.test(t)) return "🍝";
+  if (/rice|bibimbap|congee|fried rice/.test(t)) return "🍚";
   if (/fish|salmon|tuna|seafood|shrimp/.test(t)) return "🐟";
   if (/chicken/.test(t)) return "🍗";
   if (/beef|pork|meat|bulgogi|steak|bbq/.test(t)) return "🥩";
-  if (/pasta|noodle|ramen|spaghetti/.test(t)) return "🍝";
-  if (/salad|bowl|vegetable|veg|tofu/.test(t)) return "🥗";
-  if (/soup|stew|broth|curry/.test(t)) return "🍲";
-  if (/rice|fried rice|congee/.test(t)) return "🍚";
+  if (/stir.?fry/.test(t)) return "🥘";
+  if (/dumpling|wonton|gyoza/.test(t)) return "🥟";
+  if (/tofu|tempeh/.test(t)) return "🫘";
+  if (/salad|bowl|vegetable|veg/.test(t)) return "🥗";
   return "🍽️";
 }
 
-function getRecipeCuisine(title: string): string {
-  const t = title.toLowerCase();
+function getRecipeCuisine(recipe: { title: string; cuisine?: string }): string {
+  if (recipe.cuisine) return recipe.cuisine;
+  const t = recipe.title.toLowerCase();
   if (/korean|bulgogi|kimchi|bibimbap/.test(t)) return "Korean";
   if (/japanese|ramen|sushi|teriyaki|miso/.test(t)) return "Japanese";
   if (/italian|pasta|risotto|pizza/.test(t)) return "Italian";
@@ -72,19 +77,31 @@ export default function GeneratePage() {
     "Vegetarian": true,
     "Korean": true,
   });
+  const [previousTitles, setPreviousTitles] = useState<string[]>([]);
 
   async function handleGenerate() {
     setPageState("loading");
     setErrorMsg(null);
     try {
-      const res = await fetch("/api/recipes", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
+      console.log('activeFilters:', activeFilters);
+      const response = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activeFilters: Object.entries(activeFilters)
+            .filter(([, active]) => active)
+            .map(([label]) => label),
+          previousTitles,
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
         setErrorMsg(data.error ?? "Failed to generate recipes");
         setPageState("error");
         return;
       }
       setRecipes(data.recipes);
+      setPreviousTitles(data.recipes.map((r: Recipe) => r.title));
       setPageState("done");
     } catch {
       setErrorMsg("Network error — please try again");
@@ -180,14 +197,9 @@ export default function GeneratePage() {
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
           {pageState === "done" && (
-            <>
-              <button className="btn-secondary" onClick={handleGenerateAgain} type="button" style={ACTION_BTN_STYLE}>
-                ↩ Generate Again
-              </button>
-              <button className="btn-primary" onClick={handleGenerate} type="button" style={ACTION_BTN_STYLE}>
-                ✨ Generate Recipes
-              </button>
-            </>
+            <button className="btn-secondary" onClick={handleGenerateAgain} type="button" style={ACTION_BTN_STYLE}>
+              ↩ Generate Again
+            </button>
           )}
           {pageState === "error" && (
             <button className="btn-primary" onClick={handleGenerate} type="button" style={ACTION_BTN_STYLE}>
@@ -296,7 +308,7 @@ function RecipeCard({
   onClick: () => void;
 }) {
   const emoji   = getRecipeEmoji(recipe.title);
-  const cuisine = getRecipeCuisine(recipe.title);
+  const cuisine = getRecipeCuisine(recipe);
 
   return (
     <button
