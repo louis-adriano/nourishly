@@ -60,15 +60,6 @@ const CUISINE_OPTIONS = ["Korean", "Japanese", "Italian", "Mexican", "Indian", "
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const ACTION_BTN_STYLE = {
-  display: "inline-flex" as const,
-  alignItems: "center" as const,
-  gap: "8px",
-  padding: "12px 28px",
-  fontSize: "0.95rem",
-  fontFamily: "var(--font-body), system-ui, sans-serif",
-};
-
 const SECTION_LABEL_STYLE = {
   fontSize: "0.7rem",
   fontWeight: 700,
