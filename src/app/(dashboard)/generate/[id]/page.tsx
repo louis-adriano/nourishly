@@ -431,7 +431,17 @@ export default function RecipeDetailPage() {
             alignItems: "center",
             gap: 8,
           }}>
-            🥘 Ingredients
+            <span style={{ color: "var(--color-green)", display: "flex", alignItems: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </span>
+            Ingredients
           </h2>
           {ingredients.map((ing, i) => (
             <div
@@ -543,7 +553,13 @@ export default function RecipeDetailPage() {
           alignItems: "center",
           gap: 8,
         }}>
-          👨‍🍳 Cooking Steps
+          <span style={{ color: "var(--color-green)", display: "flex", alignItems: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </span>
+          Cooking Steps
         </h2>
         {stepsLoading && (
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-3)", marginBottom: 12, marginTop: 0 }}>
@@ -580,7 +596,14 @@ export default function RecipeDetailPage() {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: "1.25rem" }}>💬</span>
+            <span style={{ color: "var(--color-green)", display: "flex", alignItems: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 1 21 5 17 9" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+            </span>
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "var(--color-text)" }}>
               Ingredient substitution
             </span>
