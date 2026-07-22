@@ -240,18 +240,18 @@ export default function GeneratePage() {
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            background: "transparent",
-            border: "1.5px solid var(--color-border)",
+            backgroundColor: "#3D6B4F",
+            border: "none",
             borderRadius: "10px",
             padding: "10px 20px",
             fontSize: "0.875rem",
             fontWeight: 600,
-            color: "var(--color-text-2)",
+            color: "white",
             cursor: "pointer",
             fontFamily: "var(--font-body), system-ui, sans-serif",
           }}
         >
-          ⚙️ Edit Preferences
+          Edit Preferences
         </button>
         {pageState === "done" && (
           <button
@@ -272,7 +272,7 @@ export default function GeneratePage() {
               fontFamily: "var(--font-body), system-ui, sans-serif",
             }}
           >
-            ↩ Generate Again
+            Generate Again
           </button>
         )}
         {pageState === "error" && (
@@ -294,7 +294,7 @@ export default function GeneratePage() {
               fontFamily: "var(--font-body), system-ui, sans-serif",
             }}
           >
-            ✨ Generate Recipes
+            Generate Recipes
           </button>
         )}
         {pageState === "done" && recipes.length > 0 && (
@@ -711,7 +711,7 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
             fontFamily: "var(--font-body), system-ui, sans-serif",
           }}
         >
-          ✨ Generate Recipes
+          Generate Recipes
         </button>
       </div>
 
