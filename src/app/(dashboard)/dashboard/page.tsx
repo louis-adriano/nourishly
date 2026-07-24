@@ -276,7 +276,7 @@ export default function DashboardPage() {
                       fontWeight: 600,
                       textTransform: "uppercase",
                       letterSpacing: "0.08em",
-                      color: "var(--color-text-3)",
+                      color: "var(--color-text-2)",
                     }}>
                       {bar.label}
                     </span>
@@ -302,7 +302,7 @@ export default function DashboardPage() {
                   }}>
                     {bar.logged}
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--color-text-3)", marginTop: "2px" }}>
+                  <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
                     of {bar.target} {bar.unit}
                   </div>
 
@@ -325,10 +325,10 @@ export default function DashboardPage() {
 
                   {/* Footer: % left, amount right */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
                       {Math.round(rawPct)}%
                     </span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
                       {bar.logged > bar.target
                         ? `${bar.logged - bar.target}${bar.unit} over`
                         : `${bar.target - bar.logged}${bar.unit} left`}
@@ -380,10 +380,10 @@ export default function DashboardPage() {
               textAlign: "center",
             }}>
               <span aria-hidden="true" style={{ fontSize: "2rem", color: "var(--color-green)", lineHeight: 1 }}>+</span>
-              <p style={{ margin: 0, color: "var(--color-text-3)", fontSize: "0.9rem", fontWeight: 500 }}>
+              <p style={{ margin: 0, color: "var(--color-text-2)", fontSize: "0.9rem", fontWeight: 500 }}>
                 No meals logged today.
               </p>
-              <p style={{ margin: 0, color: "var(--color-text-3)", fontSize: "0.8rem" }}>
+              <p style={{ margin: 0, color: "var(--color-text-2)", fontSize: "0.8rem" }}>
                 Mark a recipe as cooked to get started.
               </p>
             </div>
@@ -413,7 +413,7 @@ export default function DashboardPage() {
                     }}>
                       {meal.recipe_title}
                     </div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-3)", marginTop: "2px" }}>
+                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
                       {meal.logged_time}
                     </div>
                   </div>

@@ -125,8 +125,8 @@ export default function LoginPage() {
         .form-card { width: 100%; max-width: 400px; }
         .form-header { margin-bottom: 32px; }
         .form-title { font-size: 26px; font-weight: 800; color: #1a3a28; letter-spacing: -0.5px; margin: 0 0 8px; }
-        .form-subtitle { font-size: 14px; color: #7a9a88; margin: 0; }
-        .form-link { color: #2C7A4B; font-weight: 600; text-decoration: none; }
+        .form-subtitle { font-size: 14px; color: #4a6b58; margin: 0; }
+        .form-link { color: #1e5c38; font-weight: 600; text-decoration: none; }
         .form-link:hover { text-decoration: underline; }
         .form { display: flex; flex-direction: column; gap: 18px; }
         .field { display: flex; flex-direction: column; gap: 6px; }
