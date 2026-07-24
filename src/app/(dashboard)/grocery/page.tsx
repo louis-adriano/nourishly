@@ -1,91 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (matching grocery_items Supabase schema) ───────────────────────────
 
 interface GroceryItem {
-  id: string;
-  name: string;
+  item_id: string;
+  recipe_id: string | null;
+  ingredient_name: string;
   quantity: string;
   is_collected: boolean;
 }
 
 interface GroceryGroup {
   groupId: string;
-  recipeName: string; // "General Items" for manually added
+  recipeName: string;
   items: GroceryItem[];
-}
-
-// ─── Mock data (replaced by Supabase fetch in FR08-02) ────────────────────────
-
-const MOCK_GROUPS: GroceryGroup[] = [
-  {
-    groupId: "group-001",
-    recipeName: "Teriyaki Chicken Bowl",
-    items: [
-      { id: "i-001", name: "chicken breast",  quantity: "2 pieces", is_collected: false },
-      { id: "i-002", name: "jasmine rice",    quantity: "1 cup",    is_collected: false },
-      { id: "i-003", name: "broccoli florets",quantity: "1 cup",    is_collected: false },
-      { id: "i-004", name: "soy sauce",       quantity: "1/4 cup",  is_collected: false },
-    ],
-  },
-  {
-    groupId: "group-002",
-    recipeName: "Mediterranean Chickpea Bowl",
-    items: [
-      { id: "i-005", name: "chickpeas",      quantity: "1 can",   is_collected: false },
-      { id: "i-006", name: "mixed greens",   quantity: "2 cups",  is_collected: false },
-      { id: "i-007", name: "cherry tomatoes",quantity: "1 cup",   is_collected: false },
-      { id: "i-008", name: "feta cheese",    quantity: "1/4 cup", is_collected: false },
-    ],
-  },
-  {
-    groupId: "group-general",
-    recipeName: "General Items",
-    items: [],
-  },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function GroceryPage() {
-  const [groups, setGroups] = useState<GroceryGroup[]>(MOCK_GROUPS);
+  const [groups, setGroups] = useState<GroceryGroup[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  // Add item form state
   const [inputName, setInputName] = useState("");
   const [inputQty, setInputQty] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
-  const allItems = groups.flatMap((g) => g.items);
-  const totalItems = allItems.length;
-  const checkedItems = allItems.filter((i) => i.is_collected).length;
+  // ── Fetch all grocery items on mount ────────────────────────────────────────
+  useEffect(() => {
+    fetchGroups();
+  }, []);
 
-  // ── Add item manually to General Items group ───────────────────────────────
-  function handleAddItem() {
+  async function fetchGroups() {
+    setPageLoading(true);
+    setPageError(null);
+    try {
+      const res = await fetch("/api/grocery");
+      if (!res.ok) throw new Error(`Failed to load grocery list (${res.status})`);
+      const data = await res.json();
+      setGroups(data.groups);
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setPageLoading(false);
+    }
+  }
+
+  // ── Add item manually (POST) ─────────────────────────────────────────────
+  async function handleAddItem() {
     const trimmedName = inputName.trim();
-    if (!trimmedName) return;
+    if (!trimmedName || addLoading) return;
 
-    const newItem: GroceryItem = {
-      id: generateId(),
-      name: trimmedName,
-      quantity: inputQty.trim(),
-      is_collected: false,
-    };
+    setAddLoading(true);
+    try {
+      const res = await fetch("/api/grocery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ingredient_name: trimmedName,
+          quantity: inputQty.trim(),
+        }),
+      });
 
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.groupId === "group-general"
-          ? { ...g, items: [...g.items, newItem] }
-          : g
-      )
-    );
-    setInputName("");
-    setInputQty("");
+      if (!res.ok) throw new Error("Failed to add item");
+      const data = await res.json();
+
+      // Optimistically add to General Items group
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.groupId === "group-general"
+            ? { ...g, items: [...g.items, data.item] }
+            : g
+        )
+      );
+      setInputName("");
+      setInputQty("");
+    } catch {
+      alert("Could not add item. Please try again.");
+    } finally {
+      setAddLoading(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -95,58 +93,141 @@ export default function GroceryPage() {
     }
   }
 
-  // ── Toggle checkbox (visual only — persisted in FR08-02) ───────────────────
-  function handleToggle(groupId: string, itemId: string) {
+  // ── Toggle checkbox (PATCH) ──────────────────────────────────────────────
+  async function handleToggle(groupId: string, item: GroceryItem) {
+    const newValue = !item.is_collected;
+
+    // Optimistic update
     setGroups((prev) =>
       prev.map((g) =>
         g.groupId === groupId
           ? {
               ...g,
-              items: g.items.map((item) =>
-                item.id === itemId
-                  ? { ...item, is_collected: !item.is_collected }
-                  : item
+              items: g.items.map((i) =>
+                i.item_id === item.item_id ? { ...i, is_collected: newValue } : i
               ),
             }
           : g
       )
     );
+
+    try {
+      const res = await fetch("/api/grocery", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: item.item_id, is_collected: newValue }),
+      });
+      if (!res.ok) throw new Error("Failed to update item");
+    } catch {
+      // Revert on failure
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.groupId === groupId
+            ? {
+                ...g,
+                items: g.items.map((i) =>
+                  i.item_id === item.item_id ? { ...i, is_collected: !newValue } : i
+                ),
+              }
+            : g
+        )
+      );
+    }
   }
 
-  // ── Delete single item ─────────────────────────────────────────────────────
-  function handleDeleteItem(groupId: string, itemId: string) {
+  // ── Delete single item (DELETE) ──────────────────────────────────────────
+  async function handleDeleteItem(groupId: string, item_id: string) {
+    // Optimistic update
     setGroups((prev) =>
       prev.map((g) =>
         g.groupId === groupId
-          ? { ...g, items: g.items.filter((item) => item.id !== itemId) }
+          ? { ...g, items: g.items.filter((i) => i.item_id !== item_id) }
           : g
       )
     );
+
+    try {
+      const res = await fetch("/api/grocery", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete item");
+    } catch {
+      // Refetch to restore accurate state on failure
+      fetchGroups();
+    }
   }
 
-  // ── Delete entire group ────────────────────────────────────────────────────
-  function handleDeleteGroup(groupId: string) {
-    // Never delete the General Items group — just clear its items
-    if (groupId === "group-general") {
+  // ── Delete entire group (DELETE) ─────────────────────────────────────────
+  async function handleDeleteGroup(group: GroceryGroup) {
+    const recipe_id = group.groupId === "group-general" ? null : group.groupId;
+
+    // Optimistic update
+    if (group.groupId === "group-general") {
       setGroups((prev) =>
         prev.map((g) => (g.groupId === "group-general" ? { ...g, items: [] } : g))
       );
     } else {
-      setGroups((prev) => prev.filter((g) => g.groupId !== groupId));
+      setGroups((prev) => prev.filter((g) => g.groupId !== group.groupId));
+    }
+
+    try {
+      const res = await fetch("/api/grocery", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete group");
+    } catch {
+      fetchGroups();
     }
   }
 
-  // ── Visible groups (hide empty non-general groups) ─────────────────────────
+  // ── Derived stats ────────────────────────────────────────────────────────
+  const allItems = groups.flatMap((g) => g.items);
+  const totalItems = allItems.length;
+  const checkedItems = allItems.filter((i) => i.is_collected).length;
   const visibleGroups = groups.filter(
     (g) => g.groupId === "group-general" || g.items.length > 0
   );
 
+  // ── Loading state ────────────────────────────────────────────────────────
+  if (pageLoading) {
+    return (
+      <div style={{ fontFamily: "'DM Sans', 'Nunito', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
+        <div style={{ width: 40, height: 40, border: "3px solid #e8f0eb", borderTopColor: "#2C7A4B", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <p style={{ fontSize: 14, color: "#7a9a88", margin: 0 }}>Loading your grocery list…</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ── Error state ──────────────────────────────────────────────────────────
+  if (pageError) {
+    return (
+      <div style={{ fontFamily: "'DM Sans', 'Nunito', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 12, textAlign: "center", padding: "0 24px" }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e57373" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1a3a28", margin: 0 }}>Could not load grocery list</h2>
+        <p style={{ fontSize: 14, color: "#7a9a88", margin: 0 }}>{pageError}</p>
+        <button
+          onClick={fetchGroups}
+          style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "#2C7A4B", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "'DM Sans', 'Nunito', sans-serif", maxWidth: 720, margin: "0 auto", padding: "32px 24px 64px" }}>
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .item-row:hover .delete-btn { opacity: 1; }
-        .delete-btn { opacity: 0; transition: opacity 0.15s ease; }
+        .item-row:hover .delete-btn { opacity: 1 !important; }
       `}</style>
 
       {/* ── Page header ── */}
@@ -181,10 +262,10 @@ export default function GroceryPage() {
         />
         <button
           onClick={handleAddItem}
-          disabled={!inputName.trim()}
-          style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: inputName.trim() ? "#2C7A4B" : "#d4e6da", color: inputName.trim() ? "#fff" : "#a0b8a8", fontSize: 13, fontWeight: 700, cursor: inputName.trim() ? "pointer" : "not-allowed", transition: "background 0.15s ease", flexShrink: 0 }}
+          disabled={!inputName.trim() || addLoading}
+          style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: inputName.trim() && !addLoading ? "#2C7A4B" : "#d4e6da", color: inputName.trim() && !addLoading ? "#fff" : "#a0b8a8", fontSize: 13, fontWeight: 700, cursor: inputName.trim() && !addLoading ? "pointer" : "not-allowed", transition: "background 0.15s ease", flexShrink: 0 }}
         >
-          + Add
+          {addLoading ? "Adding…" : "+ Add"}
         </button>
       </div>
 
@@ -214,8 +295,7 @@ export default function GroceryPage() {
                 {group.recipeName}
               </h2>
               <button
-                onClick={() => handleDeleteGroup(group.groupId)}
-                title={group.groupId === "group-general" ? "Clear all general items" : "Remove this group"}
+                onClick={() => handleDeleteGroup(group)}
                 style={{ fontSize: 12, color: "#b0c4b8", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#e57373")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "#b0c4b8")}
@@ -233,13 +313,13 @@ export default function GroceryPage() {
               ) : (
                 group.items.map((item, i) => (
                   <div
-                    key={item.id}
+                    key={item.item_id}
                     className="item-row"
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: i % 2 === 0 ? "#f8faf9" : "#fff", borderBottom: i < group.items.length - 1 ? "1px solid #e8f0eb" : "none" }}
                   >
                     {/* Custom checkbox */}
                     <button
-                      onClick={() => handleToggle(group.groupId, item.id)}
+                      onClick={() => handleToggle(group.groupId, item)}
                       aria-label={item.is_collected ? "Mark as uncollected" : "Mark as collected"}
                       style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, border: `2px solid ${item.is_collected ? "#2C7A4B" : "#c5d9ce"}`, background: item.is_collected ? "#2C7A4B" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.15s ease" }}
                     >
@@ -252,7 +332,7 @@ export default function GroceryPage() {
 
                     {/* Item name + quantity */}
                     <span style={{ flex: 1, fontSize: 14, color: item.is_collected ? "#a0b8a8" : "#1a3a28", fontWeight: 500, textDecoration: item.is_collected ? "line-through" : "none", transition: "all 0.15s ease" }}>
-                      {item.name}
+                      {item.ingredient_name}
                       {item.quantity && (
                         <span style={{ fontSize: 13, color: item.is_collected ? "#c5d9ce" : "#7a9a88", fontWeight: 400, marginLeft: 8 }}>
                           {item.quantity}
@@ -263,9 +343,9 @@ export default function GroceryPage() {
                     {/* Delete button */}
                     <button
                       className="delete-btn"
-                      onClick={() => handleDeleteItem(group.groupId, item.id)}
-                      aria-label={`Delete ${item.name}`}
-                      style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, border: "none", background: "#fdf0f0", color: "#e57373", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      onClick={() => handleDeleteItem(group.groupId, item.item_id)}
+                      aria-label={`Delete ${item.ingredient_name}`}
+                      style={{ opacity: 0, flexShrink: 0, width: 28, height: 28, borderRadius: 8, border: "none", background: "#fdf0f0", color: "#e57373", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "opacity 0.15s ease" }}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
