@@ -295,7 +295,7 @@ export default function OnboardingPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-16 flex flex-col items-center">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-16 flex flex-col items-center">
             {/* Logo */}
             <div style={{ marginBottom: 24 }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
@@ -340,9 +340,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">What is your health goal?</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">What is your health goal?</h1>
               <p className="text-gray-500 text-base">Help us personalise your nutrition plan</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
@@ -394,9 +394,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Select your dietary restrictions</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Select your dietary restrictions</h1>
               <p className="text-gray-500 text-base">We&apos;ll make sure your recipes match your preferences</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
@@ -446,9 +446,9 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {stepLabel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Choose your favourite cuisines</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Choose your favourite cuisines</h1>
             <p className="text-gray-500 text-base">Select all that apply — we&apos;ll find the best recipes for you</p>
           </div>
           <div className="flex flex-wrap gap-3 mb-10">
@@ -491,9 +491,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Tell us about yourself</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Tell us about yourself</h1>
               <p className="text-gray-500 text-base">We&apos;ll use this to calculate your personalised nutrition targets</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
@@ -573,9 +573,9 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {stepLabel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Your personalised nutrition targets</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Your personalised nutrition targets</h1>
             <p className="text-gray-500 text-base">Calculated based on your profile — adjust if needed</p>
           </div>
           <div style={{ background: 'var(--color-green-light)', color: 'var(--color-green-dark)', borderRadius: 8, padding: '10px 14px', fontSize: '0.85rem', fontWeight: 500, marginBottom: 20 }}>

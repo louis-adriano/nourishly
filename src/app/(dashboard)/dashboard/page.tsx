@@ -151,7 +151,7 @@ export default function DashboardPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px" }}>
 
       {/* ── Greeting Hero ── */}
-      <div style={{
+      <div className="hero-card" style={{
         position: "relative",
         display: "flex",
         alignItems: "center",
@@ -160,7 +160,6 @@ export default function DashboardPage() {
         flexWrap: "wrap",
         background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)",
         borderRadius: "20px",
-        padding: "28px 32px",
         overflow: "hidden",
         animation: "fadeUp 0.35s ease both",
       }}>
@@ -177,9 +176,8 @@ export default function DashboardPage() {
         />
 
         <div style={{ position: "relative", zIndex: 1 }}>
-          <h1 style={{
+          <h1 className="hero-title" style={{
             fontFamily: "var(--font-display), Georgia, serif",
-            fontSize: "1.75rem",
             fontWeight: 700,
             color: "white",
             margin: "0 0 6px",
@@ -236,7 +234,7 @@ export default function DashboardPage() {
         </h2>
 
         {!isLoading && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+          <div className="nutrition-grid">
             {NUTRITION_BARS.map((bar, i) => {
               const rawPct = bar.target > 0 ? (bar.logged / bar.target) * 100 : 0;
               const fillColor = rawPct > 100
@@ -262,7 +260,6 @@ export default function DashboardPage() {
                   key={bar.key}
                   className="card nutrition-card"
                   style={{
-                    padding: "20px 24px",
                     display: "flex",
                     flexDirection: "column",
                     animationDelay: `${i * 0.08}s`,
@@ -293,9 +290,8 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Big number */}
-                  <div style={{
+                  <div className="nutrition-number" style={{
                     fontFamily: "var(--font-body), system-ui, sans-serif",
-                    fontSize: "2.5rem",
                     fontWeight: 700,
                     color: "var(--color-text)",
                     lineHeight: 1,
@@ -438,9 +434,49 @@ export default function DashboardPage() {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        .nutrition-card {
+          padding: 20px 24px;
+        }
+        .nutrition-number {
+          font-size: 2.5rem;
+        }
         .nutrition-card:hover {
           box-shadow: 0 6px 20px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.08);
           transform: none;
+        }
+        .hero-card {
+          padding: 28px 32px;
+        }
+        .hero-title {
+          font-size: 1.75rem;
+        }
+        .nutrition-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 640px) {
+          .hero-card {
+            padding: 20px;
+          }
+          .hero-title {
+            font-size: 1.4rem;
+          }
+          .nutrition-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+          }
+          .nutrition-card {
+            padding: 16px;
+          }
+          .nutrition-number {
+            font-size: 1.9rem;
+          }
+        }
+        @media (max-width: 380px) {
+          .nutrition-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

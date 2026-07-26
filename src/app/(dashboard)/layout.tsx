@@ -28,6 +28,15 @@ export default function DashboardLayout({
           max-width: 1100px;
           overflow-y: auto;
         }
+
+        @media (max-width: 767px) {
+          .main-content {
+            margin-left: 0;
+            padding: 24px 16px 40px;
+            padding-top: calc(56px + 24px);
+            max-width: 100%;
+          }
+        }
       `}</style>
     </div>
   );

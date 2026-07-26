@@ -490,14 +490,14 @@ export default function GeneratePage() {
     <div className="min-h-screen flex flex-col bg-gray-50">
 
       {/* Header */}
-      <div className="px-8 pt-8 pb-6 bg-white border-b border-gray-100 shadow-sm">
+      <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-6 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-50 text-green-700">
                 AI Powered
               </span>
-              <h1 className="text-3xl font-semibold text-gray-800 mt-1 leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800 mt-1 leading-tight">
                 Generate Recipes
               </h1>
               <p className="text-sm text-gray-600 mt-1">
@@ -522,7 +522,7 @@ export default function GeneratePage() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-8 py-8">
+      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8">
 
         {status === "idle" && <EmptyState onGenerate={handleGenerate} />}
         {status === "loading" && <LoadingSpinner />}

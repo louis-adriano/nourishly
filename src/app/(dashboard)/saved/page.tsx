@@ -175,7 +175,7 @@ export default function SavedPage() {
       </div>
 
       {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="saved-grid">
         {items.map((item) => {
           if (!item.recipe) return null;
           return (
@@ -216,6 +216,20 @@ export default function SavedPage() {
 
       <style jsx>{`
         .no-hover:hover { transform: none !important; box-shadow: none !important; }
+        .saved-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 1024px) {
+          .saved-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+          .saved-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        }
+        @media (max-width: 420px) {
+          .saved-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   );
