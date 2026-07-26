@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,6 +34,8 @@ type CuisinePreference =
   | 'american'
   | 'french'
   | 'korean'
+
+type Sex = 'male' | 'female' | 'prefer-not-to-say'
 
 // ─── Step 1 data ──────────────────────────────────────────────────────────────
 
@@ -123,6 +125,14 @@ const cuisineOptions: { id: CuisinePreference; label: string }[] = [
   { id: 'korean',        label: 'Korean'        },
 ]
 
+// ─── Step 4 data ──────────────────────────────────────────────────────────────
+
+const sexOptions: { id: Sex; label: string }[] = [
+  { id: 'male',              label: 'Male'              },
+  { id: 'female',            label: 'Female'            },
+  { id: 'prefer-not-to-say', label: 'Prefer not to say' },
+]
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function toggle<T>(set: T[], value: T): T[] {
@@ -133,7 +143,7 @@ function toggle<T>(set: T[], value: T): T[] {
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [selectedGoal, setSelectedGoal] = useState<HealthGoal | null>(null)
   const [selectedDiet, setSelectedDiet] = useState<DietaryRestriction[]>([])
   const [selectedCuisines, setSelectedCuisines] = useState<CuisinePreference[]>([])
@@ -144,7 +154,82 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Body metrics state
+  const [age, setAge] = useState('')
+  const [weight, setWeight] = useState('')
+  const [height, setHeight] = useState('')
+  const [sex, setSex] = useState<Sex | ''>('')
+
+  // Calculating screen state
+  const [calculating, setCalculating] = useState(false)
+  const [calcMsgIndex, setCalcMsgIndex] = useState(0)
+  const [calcMsgVisible, setCalcMsgVisible] = useState(true)
+  const [calcProgress, setCalcProgress] = useState(0)
+
+  const CALC_MESSAGES = [
+    'Calculating your BMR...',
+    'Analysing your health goal...',
+    'Optimising your macros...',
+    'Finalising your targets...',
+  ]
+
+  // ── Calculating screen animation ─────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!calculating) return
+
+    setCalcMsgIndex(0)
+    setCalcMsgVisible(true)
+    setCalcProgress(0)
+
+    const progressTimer = setTimeout(() => setCalcProgress(100), 50)
+
+    const timers: ReturnType<typeof setTimeout>[] = []
+    ;[500, 1000, 1500].forEach((ms, i) => {
+      timers.push(setTimeout(() => setCalcMsgVisible(false), ms - 150))
+      timers.push(setTimeout(() => {
+        setCalcMsgIndex(i + 1)
+        setCalcMsgVisible(true)
+      }, ms))
+    })
+
+    const doneTimer = setTimeout(() => {
+      setCalculating(false)
+      setCurrentStep(5)
+    }, 2000)
+
+    return () => {
+      clearTimeout(progressTimer)
+      clearTimeout(doneTimer)
+      timers.forEach(clearTimeout)
+    }
+  }, [calculating])
+
   // ── Handlers ────────────────────────────────────────────────────────────────
+
+  function calculateTargets() {
+    const ageNum = parseInt(age)
+    const weightNum = parseFloat(weight)
+    const heightNum = parseFloat(height)
+
+    // Mifflin-St Jeor uses a male/female offset; default to the female offset
+    // (the more conservative estimate) when the user prefers not to say.
+    const bmr = sex === 'male'
+      ? 10 * weightNum + 6.25 * heightNum - 5 * ageNum + 5
+      : 10 * weightNum + 6.25 * heightNum - 5 * ageNum - 161
+
+    const tdee = bmr * 1.375
+
+    let calories = tdee
+    if (selectedGoal === 'weight-loss') calories = tdee - 500
+    else if (selectedGoal === 'muscle-gain') calories = tdee + 300
+
+    setDailyCalories(Math.round(calories))
+    setDailyProtein(Math.round((calories * 0.25) / 4))
+    setDailyCarbs(Math.round((calories * 0.45) / 4))
+    setDailyFat(Math.round((calories * 0.30) / 9))
+    setCalculating(true)
+  }
 
   const handleFinishSetup = async () => {
     setLoading(true)
@@ -161,6 +246,10 @@ export default function OnboardingPage() {
         daily_protein_g: dailyProtein,
         daily_carbs_g: dailyCarbs,
         daily_fat_g: dailyFat,
+        age: parseInt(age),
+        weight_kg: parseFloat(weight),
+        height_cm: parseFloat(height),
+        sex,
       }),
     })
 
@@ -180,18 +269,18 @@ export default function OnboardingPage() {
   const stepLabel = (
     <div className="mb-8">
       <p className="text-center text-sm font-medium text-gray-400 tracking-widest uppercase mb-3">
-        Step {currentStep} of 4
+        Step {currentStep} of 5
       </p>
       <div className="w-full bg-gray-200 rounded-full h-1.5">
         <div
           className="bg-[#2C7A4B] h-1.5 rounded-full transition-all duration-300"
-          style={{ width: `${(currentStep / 4) * 100}%` }}
+          style={{ width: `${(currentStep / 5) * 100}%` }}
         />
       </div>
     </div>
   )
 
-  const backButton = (targetStep: 1 | 2 | 3) => (
+  const backButton = (targetStep: 1 | 2 | 3 | 4) => (
     <button
       onClick={() => setCurrentStep(targetStep)}
       className="px-8 py-3 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 bg-white hover:bg-gray-50 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]"
@@ -199,6 +288,50 @@ export default function OnboardingPage() {
       Back
     </button>
   )
+
+  // ── Calculating screen ───────────────────────────────────────────────────────
+
+  if (calculating) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-16 flex flex-col items-center">
+            {/* Logo */}
+            <div style={{ marginBottom: 24 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" fill="#4A7C59" />
+                <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            {/* Message */}
+            <p style={{
+              fontFamily: 'var(--font-display), system-ui, sans-serif',
+              fontWeight: 600,
+              fontSize: '1.1rem',
+              color: 'var(--color-text)',
+              marginBottom: 20,
+              opacity: calcMsgVisible ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+              textAlign: 'center',
+            }}>
+              {CALC_MESSAGES[calcMsgIndex]}
+            </p>
+            {/* Progress bar */}
+            <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'var(--color-border)', marginTop: 8 }}>
+              <div style={{
+                height: 6,
+                borderRadius: 3,
+                background: 'var(--color-green)',
+                width: `${calcProgress}%`,
+                transition: 'width 2s linear',
+              }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // ── Step 1 ──────────────────────────────────────────────────────────────────
 
@@ -350,7 +483,91 @@ export default function OnboardingPage() {
     </div>
   )
 
-  // ── Step 4 ──────────────────────────────────────────────────────────────────
+  // ── Step 4 (Body Metrics) ────────────────────────────────────────────────────
+
+  if (currentStep === 4) {
+    const step4Valid = age !== '' && weight !== '' && height !== '' && sex !== ''
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          {stepLabel}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+            <div className="text-center mb-10">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Tell us about yourself</h1>
+              <p className="text-gray-500 text-base">We&apos;ll use this to calculate your personalised nutrition targets</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">Age (years)</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={100}
+                  placeholder="25"
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">Weight (kg)</label>
+                <input
+                  type="number"
+                  placeholder="70"
+                  value={weight}
+                  onChange={e => setWeight(e.target.value)}
+                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">Height (cm)</label>
+                <input
+                  type="number"
+                  placeholder="170"
+                  value={height}
+                  onChange={e => setHeight(e.target.value)}
+                  className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-sm font-semibold text-gray-700">Sex</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {sexOptions.map(option => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setSex(option.id)}
+                      className={[
+                        'py-3 px-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]',
+                        sex === option.id
+                          ? 'border-[#2C7A4B] bg-[#f0f9f4] text-[#2C7A4B]'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-[#2C7A4B]/40 hover:bg-gray-50',
+                      ].join(' ')}
+                      aria-pressed={sex === option.id}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between">
+              {backButton(3)}
+              <button
+                onClick={calculateTargets}
+                disabled={!step4Valid || calculating}
+                className={['px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]', step4Valid && !calculating ? 'bg-[#2C7A4B] text-white hover:bg-[#235f3a] cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'].join(' ')}
+              >
+                {calculating ? 'Calculating...' : 'Next'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Step 5 (Nutrition Targets) ───────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
@@ -358,8 +575,11 @@ export default function OnboardingPage() {
         {stepLabel}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Set your daily nutrition targets</h1>
-            <p className="text-gray-500 text-base">We&apos;ll use these to track your progress on the dashboard</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Your personalised nutrition targets</h1>
+            <p className="text-gray-500 text-base">Calculated based on your profile — adjust if needed</p>
+          </div>
+          <div style={{ background: 'var(--color-green-light)', color: 'var(--color-green-dark)', borderRadius: 8, padding: '10px 14px', fontSize: '0.85rem', fontWeight: 500, marginBottom: 20 }}>
+            ✓ Targets calculated based on your height, weight, age and goal
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
             <div className="flex flex-col gap-1.5">
@@ -413,7 +633,7 @@ export default function OnboardingPage() {
           </div>
           {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
           <div className="flex justify-between">
-            {backButton(3)}
+            {backButton(4)}
             <button
               onClick={handleFinishSetup}
               disabled={loading}

@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const publicRoutes = ['/login', '/register', '/onboarding']
+  const publicRoutes = ['/login', '/register', '/onboarding', '/terms', '/privacy']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   if (!user && !isPublicRoute) {

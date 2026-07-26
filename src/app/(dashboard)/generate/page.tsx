@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type PageState = "idle" | "loading" | "done" | "error";
 
@@ -9,6 +10,7 @@ interface Recipe {
   id: string;
   title: string;
   description: string;
+  cuisine?: string;
   cook_time_mins: number;
   ingredients?: Array<string | { name: string; unit?: string; quantity?: number | string }>;
   nutrition: {
@@ -23,18 +25,22 @@ interface Recipe {
 
 function getRecipeEmoji(title: string): string {
   const t = title.toLowerCase();
+  if (/soup|stew|broth|curry/.test(t)) return "🍲";
+  if (/noodle|ramen|pasta|spaghetti|glass noodles/.test(t)) return "🍝";
+  if (/rice|bibimbap|congee|fried rice/.test(t)) return "🍚";
   if (/fish|salmon|tuna|seafood|shrimp/.test(t)) return "🐟";
   if (/chicken/.test(t)) return "🍗";
   if (/beef|pork|meat|bulgogi|steak|bbq/.test(t)) return "🥩";
-  if (/pasta|noodle|ramen|spaghetti/.test(t)) return "🍝";
-  if (/salad|bowl|vegetable|veg|tofu/.test(t)) return "🥗";
-  if (/soup|stew|broth|curry/.test(t)) return "🍲";
-  if (/rice|fried rice|congee/.test(t)) return "🍚";
+  if (/stir.?fry/.test(t)) return "🥘";
+  if (/dumpling|wonton|gyoza/.test(t)) return "🥟";
+  if (/tofu|tempeh/.test(t)) return "🫘";
+  if (/salad|bowl|vegetable|veg/.test(t)) return "🥗";
   return "🍽️";
 }
 
-function getRecipeCuisine(title: string): string {
-  const t = title.toLowerCase();
+function getRecipeCuisine(recipe: { title: string; cuisine?: string }): string {
+  if (recipe.cuisine) return recipe.cuisine;
+  const t = recipe.title.toLowerCase();
   if (/korean|bulgogi|kimchi|bibimbap/.test(t)) return "Korean";
   if (/japanese|ramen|sushi|teriyaki|miso/.test(t)) return "Japanese";
   if (/italian|pasta|risotto|pizza/.test(t)) return "Italian";
@@ -46,45 +52,180 @@ function getRecipeCuisine(title: string): string {
   return "Recipe";
 }
 
+// ── Preferences config ────────────────────────────────────────────────────────
+
+const HEALTH_GOALS = ["Weight Loss", "Muscle Gain", "General Wellness", "Maintain Weight", "Healthy Eating"];
+const DIETARY_OPTIONS = ["Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Nut-Free", "Halal", "Kosher"];
+const CUISINE_OPTIONS = ["Korean", "Japanese", "Italian", "Mexican", "Indian", "Thai", "Mediterranean", "American", "Chinese", "Vietnamese"];
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const FILTER_CONFIG: Array<{ key: string; emoji: string }> = [
-  { key: "Weight Loss", emoji: "🎯" },
-  { key: "Vegetarian", emoji: "🥗" },
-  { key: "Korean",     emoji: "🍜" },
-];
-
-const ACTION_BTN_STYLE = {
-  display: "inline-flex" as const,
-  alignItems: "center" as const,
-  gap: "8px",
-  padding: "12px 28px",
-  fontSize: "0.95rem",
-  fontFamily: "var(--font-body), system-ui, sans-serif",
+const SECTION_LABEL_STYLE = {
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  color: "var(--color-green)",
+  textTransform: "uppercase" as const,
+  margin: "0 0 10px",
 };
+
+function chipStyle(active: boolean) {
+  return {
+    background: active ? "var(--color-green)" : "transparent",
+    color: active ? "white" : "var(--color-text-2)",
+    border: active ? "none" : "1.5px solid var(--color-border)",
+    borderRadius: "20px",
+    padding: "8px 16px",
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-body), system-ui, sans-serif",
+    transition: "all 0.15s ease",
+  } as const;
+}
 
 export default function GeneratePage() {
   const [pageState, setPageState] = useState<PageState>("idle");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
-    "Weight Loss": true,
-    "Vegetarian": true,
-    "Korean": true,
-  });
+  const [previousTitles, setPreviousTitles] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/saved-recipes")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.recipes) {
+          setSavedIds(new Set(data.recipes.map((r: { recipe_id: string }) => r.recipe_id)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleToggleSave(recipeId: string) {
+    if (savedIds.has(recipeId)) {
+      const res = await fetch("/api/saved-recipes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok) {
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(recipeId);
+          return next;
+        });
+      }
+    } else {
+      const res = await fetch("/api/saved-recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok || res.status === 409) {
+        setSavedIds((prev) => new Set([...prev, recipeId]));
+      }
+    }
+  }
+
+  // Preferences modal state
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [loadingPrefs, setLoadingPrefs] = useState(false);
+  const [modalGoal, setModalGoal] = useState("");
+  const [modalDiet, setModalDiet] = useState<string[]>([]);
+  const [modalCuisine, setModalCuisine] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  async function openPrefs() {
+    setPrefsOpen(true);
+    setSaveSuccess(false);
+    setLoadingPrefs(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("health_goal, dietary_restrictions, cuisine_preferences")
+        .eq("user_id", user.id)
+        .single();
+      if (data) {
+        const goalMap: Record<string, string> = {
+          "weight-loss": "Weight Loss",
+          "muscle-gain": "Muscle Gain",
+          "general-wellness": "General Wellness",
+          "maintenance": "Maintain Weight",
+          "healthy-eating": "Healthy Eating",
+        };
+        setModalGoal(goalMap[data.health_goal] ?? data.health_goal ?? "");
+
+        const dietMap: Record<string, string> = {
+          "vegetarian": "Vegetarian",
+          "vegan": "Vegan",
+          "gluten-free": "Gluten-Free",
+          "dairy-free": "Dairy-Free",
+          "nut-free": "Nut-Free",
+          "halal": "Halal",
+          "kosher": "Kosher",
+        };
+        const normalizedDiet = (data.dietary_restrictions ?? [])
+          .map((d: string) => dietMap[d.toLowerCase()] ?? d);
+        setModalDiet(normalizedDiet);
+
+        const normalizedCuisine = (data.cuisine_preferences ?? [])
+          .map((c: string) => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase());
+        setModalCuisine(normalizedCuisine);
+      }
+    } finally {
+      setLoadingPrefs(false);
+    }
+  }
+
+  function toggleDiet(val: string) {
+    setModalDiet(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
+  }
+
+  function toggleCuisine(val: string) {
+    setModalCuisine(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
+  }
+
+  async function savePrefs() {
+    setSaving(true);
+    try {
+      await fetch("/api/auth/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          health_goal: modalGoal,
+          dietary_restrictions: modalDiet,
+          cuisine_preferences: modalCuisine,
+        }),
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setPrefsOpen(false), 800);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleGenerate() {
     setPageState("loading");
     setErrorMsg(null);
     try {
-      const res = await fetch("/api/recipes", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
+      const response = await fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ previousTitles }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
         setErrorMsg(data.error ?? "Failed to generate recipes");
         setPageState("error");
         return;
       }
       setRecipes(data.recipes);
+      setPreviousTitles(data.recipes.map((r: Recipe) => r.title));
       setPageState("done");
     } catch {
       setErrorMsg("Network error — please try again");
@@ -97,14 +238,10 @@ export default function GeneratePage() {
     handleGenerate();
   }
 
-  function toggleFilter(key: string) {
-    setActiveFilters(prev => ({ ...prev, [key]: !prev[key] }));
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 64px)" }}>
 
-      {/* ── Header card (single column) ── */}
+      {/* ── Header card ── */}
       <div className="card header-card">
         <p className="header-label">AI RECIPE GENERATOR</p>
         <h1 style={{
@@ -119,82 +256,79 @@ export default function GeneratePage() {
           What would you like to cook?
         </h1>
         <p className="header-subtitle">
-          Recipes are personalised to your filters below.
+          Recipes are personalised to your health goal and preferences.
         </p>
       </div>
 
-      {/* ── Filter bar ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "16px 0" }}>
-        {FILTER_CONFIG.map(({ key, emoji }) => {
-          const isActive = activeFilters[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => toggleFilter(key)}
-              style={{
-                background: isActive ? "var(--color-green)" : "transparent",
-                color: isActive ? "white" : "var(--color-text-3)",
-                border: isActive ? "none" : "1.5px solid var(--color-border)",
-                borderRadius: "20px",
-                padding: "8px 16px",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                transition: "all 0.15s ease",
-                cursor: "pointer",
-                fontFamily: "var(--font-body), system-ui, sans-serif",
-              }}
-            >
-              {isActive && <span>✓</span>}
-              <span>{emoji}</span>
-              <span>{key}</span>
-            </button>
-          );
-        })}
+      {/* ── Action row ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "16px" }}>
         <button
           type="button"
+          onClick={openPrefs}
           style={{
-            background: "transparent",
-            border: "1.5px dashed var(--color-border)",
-            borderRadius: "20px",
-            padding: "8px 16px",
-            fontSize: "0.8rem",
-            color: "var(--color-text-3)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "#3D6B4F",
+            border: "none",
+            borderRadius: "10px",
+            padding: "10px 20px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "white",
             cursor: "pointer",
             fontFamily: "var(--font-body), system-ui, sans-serif",
           }}
         >
-          + Add filter
+          Edit Preferences
         </button>
-      </div>
-
-      {/* ── Action row ── */}
-      <div className="action-row">
-        <div>
-          {pageState === "done" && recipes.length > 0 && (
-            <p className="result-count">✅ {recipes.length} recipes generated for you</p>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: "12px" }}>
-          {pageState === "done" && (
-            <>
-              <button className="btn-secondary" onClick={handleGenerateAgain} type="button" style={ACTION_BTN_STYLE}>
-                ↩ Generate Again
-              </button>
-              <button className="btn-primary" onClick={handleGenerate} type="button" style={ACTION_BTN_STYLE}>
-                ✨ Generate Recipes
-              </button>
-            </>
-          )}
-          {pageState === "error" && (
-            <button className="btn-primary" onClick={handleGenerate} type="button" style={ACTION_BTN_STYLE}>
-              ✨ Generate Recipes
-            </button>
-          )}
-        </div>
+        {pageState === "done" && (
+          <button
+            type="button"
+            onClick={handleGenerateAgain}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "var(--color-green-dark)",
+              border: "none",
+              borderRadius: "10px",
+              padding: "10px 20px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "white",
+              cursor: "pointer",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+            }}
+          >
+            Generate Again
+          </button>
+        )}
+        {pageState === "error" && (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "var(--color-green)",
+              border: "none",
+              borderRadius: "10px",
+              padding: "10px 20px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "white",
+              cursor: "pointer",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+            }}
+          >
+            Generate Recipes
+          </button>
+        )}
+        {pageState === "done" && recipes.length > 0 && (
+          <p className="result-count">✅ {recipes.length} recipes generated for you</p>
+        )}
       </div>
 
       {/* ── Content area ── */}
@@ -207,8 +341,131 @@ export default function GeneratePage() {
         {pageState === "idle"    && <EmptyState onGenerate={handleGenerate} />}
         {pageState === "loading" && <LoadingState />}
         {pageState === "error"   && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
-        {pageState === "done"    && <RecipeGrid recipes={recipes} />}
+        {pageState === "done"    && <RecipeGrid recipes={recipes} savedIds={savedIds} onToggleSave={handleToggleSave} />}
       </div>
+
+      {/* ── Preferences Modal ── */}
+      {prefsOpen && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setPrefsOpen(false); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+        >
+          <div style={{
+            background: "var(--color-surface)",
+            borderRadius: "20px",
+            padding: "32px",
+            width: "100%",
+            maxWidth: "520px",
+            maxHeight: "85vh",
+            overflowY: "auto",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+          }}>
+            {/* Modal header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <h2 style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 700,
+                fontSize: "1.25rem",
+                color: "var(--color-text)",
+                margin: 0,
+                letterSpacing: "-0.02em",
+              }}>
+                Edit Preferences
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPrefsOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.4rem",
+                  cursor: "pointer",
+                  color: "var(--color-text-3)",
+                  lineHeight: 1,
+                  padding: "4px 8px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingPrefs ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
+                Loading…
+              </div>
+            ) : (
+              <>
+                {/* Health Goal */}
+                <div style={{ marginBottom: "24px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Health Goal</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {HEALTH_GOALS.map(goal => (
+                      <button key={goal} type="button" onClick={() => setModalGoal(goal)} style={chipStyle(modalGoal === goal)}>
+                        {goal}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dietary Restrictions */}
+                <div style={{ marginBottom: "24px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Dietary Restrictions</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {DIETARY_OPTIONS.map(opt => (
+                      <button key={opt} type="button" onClick={() => toggleDiet(opt)} style={chipStyle(modalDiet.includes(opt))}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cuisine Preferences */}
+                <div style={{ marginBottom: "28px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {CUISINE_OPTIONS.map(opt => (
+                      <button key={opt} type="button" onClick={() => toggleCuisine(opt)} style={chipStyle(modalCuisine.includes(opt))}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Save */}
+                <button
+                  type="button"
+                  onClick={savePrefs}
+                  disabled={saving || !modalGoal}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "12px",
+                    border: "none",
+                    background: saveSuccess ? "var(--color-green-dark)" : "var(--color-green)",
+                    color: "white",
+                    fontSize: "0.95rem",
+                    fontWeight: 700,
+                    cursor: saving || !modalGoal ? "not-allowed" : "pointer",
+                    opacity: saving || !modalGoal ? 0.7 : 1,
+                    fontFamily: "var(--font-body), system-ui, sans-serif",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {saveSuccess ? "✓ Saved!" : saving ? "Saving…" : "Save Preferences"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .header-card {
@@ -232,12 +489,6 @@ export default function GeneratePage() {
           margin: 0;
           line-height: 1.5;
         }
-        .action-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 24px;
-        }
         .result-count {
           font-size: 0.85rem;
           color: var(--color-text-3);
@@ -250,7 +501,7 @@ export default function GeneratePage() {
 
 // ── Recipe grid ───────────────────────────────────────────────────────────────
 
-function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
+function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; savedIds: Set<string>; onToggleSave: (id: string) => void }) {
   const router = useRouter();
 
   return (
@@ -266,6 +517,8 @@ function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
             recipe={recipe}
             index={i}
             onClick={() => router.push(`/generate/${recipe.id}`)}
+            isSaved={savedIds.has(recipe.id)}
+            onToggleSave={() => onToggleSave(recipe.id)}
           />
         ))}
       </div>
@@ -290,51 +543,90 @@ function RecipeCard({
   recipe,
   index,
   onClick,
+  isSaved,
+  onToggleSave,
 }: {
   recipe: Recipe;
   index: number;
   onClick: () => void;
+  isSaved: boolean;
+  onToggleSave: () => void;
 }) {
   const emoji   = getRecipeEmoji(recipe.title);
-  const cuisine = getRecipeCuisine(recipe.title);
+  const cuisine = getRecipeCuisine(recipe);
 
   return (
-    <button
-      className="recipe-card"
-      onClick={onClick}
-      type="button"
-      style={{ animationDelay: `${index * 0.08}s` }}
-    >
-      {/* Top section */}
-      <div className="card-top">
-        <div className="card-top-row">
-          <span className="cuisine-tag">{cuisine}</span>
-          <span className="card-emoji" aria-hidden="true">{emoji}</span>
-        </div>
-      </div>
-
-      {/* Bottom section */}
-      <div className="card-bottom">
-        <h3 className="card-title">{recipe.title}</h3>
-        <p className="card-description">{recipe.description}</p>
-
-        {recipe.ingredients && recipe.ingredients.length > 0 && (
-          <div className="ingredient-pills">
-            {recipe.ingredients.slice(0, 2).map((ing, i) => (
-              <span key={i} className="ingredient-pill">
-                {typeof ing === "string" ? ing : ing.name}
-              </span>
-            ))}
+    <div style={{ position: "relative" }}>
+      <div
+        className="recipe-card"
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+        style={{ animationDelay: `${index * 0.08}s` }}
+      >
+        {/* Top section */}
+        <div className="card-top">
+          <div className="card-top-row">
+            <span className="cuisine-tag">{cuisine}</span>
+            <span className="card-emoji" aria-hidden="true">{emoji}</span>
           </div>
-        )}
-
-        <div className="card-meta">
-          <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
-          <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
         </div>
 
-        <div className="card-view">View recipe →</div>
+        {/* Bottom section */}
+        <div className="card-bottom">
+          <h3 className="card-title">{recipe.title}</h3>
+          <p className="card-description">{recipe.description}</p>
+
+          {recipe.ingredients && recipe.ingredients.length > 0 && (
+            <div className="ingredient-pills">
+              {recipe.ingredients.slice(0, 2).map((ing, i) => (
+                <span key={i} className="ingredient-pill">
+                  {typeof ing === "string" ? ing : ing.name}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="card-meta">
+            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+            <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
+          </div>
+
+          <div className="card-view">View recipe →</div>
+        </div>
       </div>
+
+      {/* Bookmark button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+        aria-label={isSaved ? "Unsave recipe" : "Save recipe"}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          background: isSaved ? "var(--color-green-light)" : "white",
+          border: `1.5px solid ${isSaved ? "var(--color-green)" : "var(--color-border)"}`,
+          borderRadius: 8,
+          padding: 6,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1,
+        }}
+      >
+        {isSaved ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-green)" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        )}
+      </button>
 
       <style jsx>{`
         .recipe-card {
@@ -351,8 +643,6 @@ function RecipeCard({
           flex-direction: column;
           animation: cardReveal 0.4s ease both;
           transition: all 0.2s ease;
-          -webkit-appearance: none;
-          appearance: none;
         }
         @keyframes cardReveal {
           from { opacity: 0; transform: translateY(16px); }
@@ -461,7 +751,7 @@ function RecipeCard({
           padding-top: 10px;
         }
       `}</style>
-    </button>
+    </div>
   );
 }
 
@@ -489,7 +779,7 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
             fontFamily: "var(--font-body), system-ui, sans-serif",
           }}
         >
-          ✨ Generate Recipes
+          Generate Recipes
         </button>
       </div>
 
@@ -543,59 +833,69 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="error-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e57373" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <h2 className="error-title">Could not generate recipes</h2>
-      <p className="error-body">{message}</p>
-      <button className="retry-btn" onClick={onRetry} type="button">Try again</button>
+    <div className="error-wrapper">
+      <div className="card error-card">
+        <div style={{ fontSize: "2.5rem", marginBottom: "12px", lineHeight: 1 }} aria-hidden="true">⚠️</div>
+        <h2 style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: "1.25rem",
+          color: "var(--color-text)",
+          margin: "0 0 8px",
+        }}>
+          Could not generate recipes
+        </h2>
+        <p style={{
+          color: "var(--color-text-3)",
+          fontSize: "0.875rem",
+          margin: "0 0 20px",
+          lineHeight: 1.6,
+        }}>
+          {message}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "var(--color-green)",
+            border: "none",
+            borderRadius: "10px",
+            padding: "10px 20px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "white",
+            cursor: "pointer",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+            margin: "0 auto",
+          }}
+        >
+          Try again
+        </button>
+      </div>
 
       <style jsx>{`
-        .error-state {
+        .error-wrapper {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          text-align: center;
-          max-width: 360px;
-          padding: 40px 24px;
-          gap: 12px;
-          animation: fadeUp 0.3s ease both;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
+          justify-content: center;
+          width: 100%;
+          animation: fadeUp 0.4s ease both;
         }
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .error-title {
-          font-size: 18px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0;
-          letter-spacing: -0.3px;
+        .error-card {
+          padding: 40px !important;
+          text-align: center;
+          max-width: 560px;
+          width: 100%;
         }
-        .error-body {
-          font-size: 14px;
-          color: #7a9a88;
-          margin: 0;
-          line-height: 1.6;
-        }
-        .retry-btn {
-          margin-top: 4px;
-          padding: 10px 22px;
-          border-radius: 10px;
-          border: 1.5px solid #d4e6da;
-          background: #fff;
-          color: #2C7A4B;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
-        }
-        .retry-btn:hover {
-          background: #eaf4ee;
-          border-color: #2C7A4B;
+        .error-card:hover {
+          transform: none;
         }
       `}</style>
     </div>

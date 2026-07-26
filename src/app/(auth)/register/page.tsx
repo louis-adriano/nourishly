@@ -43,6 +43,8 @@ export default function RegisterPage() {
   const [touched, setTouched] = useState<Partial<Record<keyof FormFields, boolean>>>({})
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsError, setTermsError] = useState(false)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
@@ -68,6 +70,12 @@ export default function RegisterPage() {
     const newErrors = validateForm(fields)
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) return
+
+    if (!termsAccepted) {
+      setTermsError(true)
+      return
+    }
+    setTermsError(false)
 
     setLoading(true)
     setServerError('')
@@ -128,7 +136,7 @@ export default function RegisterPage() {
           <form className="form" onSubmit={handleSubmit} noValidate>
             <div className={`field${errors.fullName && touched.fullName ? ' field--error' : ''}`}>
               <label className="field-label" htmlFor="fullName">Full Name</label>
-              <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="Jonathan Sebastian" className="field-input" value={fields.fullName} onChange={handleChange} onBlur={handleBlur} aria-describedby={errors.fullName ? 'fullName-error' : undefined} aria-invalid={!!errors.fullName} />
+              <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="John Smith" className="field-input" value={fields.fullName} onChange={handleChange} onBlur={handleBlur} aria-describedby={errors.fullName ? 'fullName-error' : undefined} aria-invalid={!!errors.fullName} />
               {errors.fullName && touched.fullName && (
                 <p id="fullName-error" className="field-error" role="alert">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
@@ -170,9 +178,31 @@ export default function RegisterPage() {
               )}
             </div>
 
+            <div style={{ marginBottom: 4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={e => { setTermsAccepted(e.target.checked); if (e.target.checked) setTermsError(false) }}
+                  style={{ width: 16, height: 16, accentColor: 'var(--color-green)', cursor: 'pointer', flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-2)' }}>
+                  I agree to the{' '}
+                  <Link href="/terms" className="form-link">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link href="/privacy" className="form-link">Privacy Policy</Link>
+                </span>
+              </label>
+              {termsError && (
+                <p style={{ color: 'var(--color-danger)', fontSize: '0.8rem', marginTop: 4, marginBottom: 0 }}>
+                  You must agree to the Terms of Service and Privacy Policy to continue.
+                </p>
+              )}
+            </div>
+
             {serverError && <p className="field-error" role="alert">{serverError}</p>}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
+            <button type="submit" className="submit-btn" disabled={loading || !termsAccepted}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
