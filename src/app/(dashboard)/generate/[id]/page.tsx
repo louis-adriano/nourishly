@@ -41,6 +41,14 @@ interface ChatMessage {
   text: string;
 }
 
+// ─── Grocery group shape (matches GET /api/grocery response) ─────────────────
+
+interface GroceryGroup {
+  groupId: string;
+  recipeName: string;
+  items: { item_id: string }[];
+}
+
 // ─── Nutrition table rows config ──────────────────────────────────────────────
 // Note: Jonathan's substitution API returns { protein, carbs, fat } without _g
 // so after a substitution we map his keys back onto our Nutrition shape.
@@ -118,6 +126,10 @@ export default function RecipeDetailPage() {
   const [cookState, setCookState] = useState<"idle" | "loading" | "logged">("idle");
   const [cookError, setCookError] = useState<string | null>(null);
 
+  // ── Add to Grocery List state ───────────────────────────────────────────────
+  const [groceryState, setGroceryState] = useState<"idle" | "loading" | "added">("idle");
+  const [groceryError, setGroceryError] = useState<string | null>(null);
+
   // ── Fetch recipe ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
@@ -154,6 +166,24 @@ export default function RecipeDetailPage() {
       });
   }, [recipe]);
 
+  // ── Check if ingredients were already imported to grocery list ─────────────
+  useEffect(() => {
+    if (!recipe) return;
+    fetch("/api/grocery")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const existingGroup = data?.groups?.find(
+          (g: GroceryGroup) => g.groupId === recipe.id && g.items.length > 0
+        );
+        if (existingGroup) {
+          setGroceryState("added");
+        }
+      })
+      .catch(() => {
+        // silently fail — button just stays in idle state
+      });
+  }, [recipe]);
+
   // ── Scroll chat to bottom on new messages ───────────────────────────────────
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -183,10 +213,8 @@ export default function RecipeDetailPage() {
       });
 
       const data = await res.json();
-      console.log('[sub] data:', JSON.stringify(data));
 
       if (res.status === 429) {
-        // Hit the session limit
         setMessages((prev) => [
           ...prev,
           { role: "error", text: data.message ?? "Substitution limit reached." },
@@ -199,14 +227,10 @@ export default function RecipeDetailPage() {
         throw new Error(data.error ?? "Something went wrong.");
       }
 
-      // ── Update remaining count ──────────────────────────────────────────────
       if (data.usage?.remaining !== undefined) {
         setRemaining(data.usage.remaining);
       }
 
-      // ── Update ingredient list ──────────────────────────────────────────────
-      // Jonathan's API returns the substitute name — find the ingredient
-      // mentioned in the user message and swap it out by name match.
       if (data.substitute) {
         const updatedIngredients = ingredients.map((ing, index) => {
           const ingredientWords = ing.name.toLowerCase().split(' ');
@@ -230,9 +254,6 @@ export default function RecipeDetailPage() {
         void regenerateSteps(updatedIngredients);
       }
 
-      // ── Update nutrition ────────────────────────────────────────────────────
-      // Jonathan's keys: { calories, protein, carbs, fat }
-      // Our Nutrition shape: { calories, protein_g, carbs_g, fat_g }
       if (data.updatedNutrition) {
         setNutrition({
           calories:  data.updatedNutrition.calories,
@@ -242,7 +263,6 @@ export default function RecipeDetailPage() {
         });
       }
 
-      // ── Add AI reply to thread ──────────────────────────────────────────────
       setMessages((prev) => [
         ...prev,
         { role: "ai", text: data.explanation ?? "Here is a suggested substitute." },
@@ -302,6 +322,44 @@ export default function RecipeDetailPage() {
     } catch {
       setCookError("Network error — please try again.");
       setCookState("idle");
+    }
+  }
+
+  // ── Add to Grocery List ──────────────────────────────────────────────────────
+  // Imports every current ingredient into the grocery list, grouped under
+  // this recipe's id/title (FR08-03). Blocks a second import once done.
+  async function handleAddToGroceryList() {
+    if (!recipe || groceryState !== "idle") return;
+    setGroceryState("loading");
+    setGroceryError(null);
+
+    try {
+      // POST each ingredient with recipe_id set so /api/grocery groups them
+      // together under this recipe's title.
+      const results = await Promise.all(
+        ingredients.map((ing) =>
+          fetch("/api/grocery", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ingredient_name: ing.name,
+              quantity: [ing.quantity, ing.unit].filter(Boolean).join(" "),
+              recipe_id: recipe.id,
+            }),
+          })
+        )
+      );
+
+      const failed = results.some((res) => !res.ok);
+      if (failed) {
+        throw new Error("Some ingredients could not be added.");
+      }
+
+      setGroceryState("added");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      setGroceryError(msg);
+      setGroceryState("idle");
     }
   }
 
@@ -472,6 +530,42 @@ export default function RecipeDetailPage() {
               </span>
             </div>
           ))}
+
+          {/* ── Add to Grocery List button (FR08-03) ── */}
+          <button
+            onClick={handleAddToGroceryList}
+            disabled={groceryState !== "idle"}
+            style={{
+              width: "100%",
+              padding: 10,
+              marginTop: 10,
+              borderRadius: 10,
+              border: groceryState === "added" ? "1.5px solid var(--color-green)" : "none",
+              background: groceryState === "added" ? "var(--color-green-light)" : "var(--color-green)",
+              color: groceryState === "added" ? "var(--color-green-dark)" : "white",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              cursor: groceryState === "idle" ? "pointer" : "not-allowed",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              transition: "background 0.15s ease",
+            }}
+          >
+            {groceryState === "loading" && (
+              <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            )}
+            {groceryState === "loading"
+              ? "Adding…"
+              : groceryState === "added"
+                ? "✓ Already Added"
+                : "Add to Grocery List"}
+          </button>
+          {groceryError && (
+            <p style={{ fontSize: "0.8rem", color: "var(--color-danger)", margin: "6px 0 0" }}>{groceryError}</p>
+          )}
         </section>
 
         {/* ── RIGHT: Nutrition + Mark as Cooked ── */}
