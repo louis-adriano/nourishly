@@ -35,6 +35,8 @@ type CuisinePreference =
   | 'french'
   | 'korean'
 
+type Sex = 'male' | 'female' | 'prefer-not-to-say'
+
 // ─── Step 1 data ──────────────────────────────────────────────────────────────
 
 interface GoalCard {
@@ -123,6 +125,14 @@ const cuisineOptions: { id: CuisinePreference; label: string }[] = [
   { id: 'korean',        label: 'Korean'        },
 ]
 
+// ─── Step 4 data ──────────────────────────────────────────────────────────────
+
+const sexOptions: { id: Sex; label: string }[] = [
+  { id: 'male',              label: 'Male'              },
+  { id: 'female',            label: 'Female'            },
+  { id: 'prefer-not-to-say', label: 'Prefer not to say' },
+]
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function toggle<T>(set: T[], value: T): T[] {
@@ -148,7 +158,7 @@ export default function OnboardingPage() {
   const [age, setAge] = useState('')
   const [weight, setWeight] = useState('')
   const [height, setHeight] = useState('')
-  const [sex, setSex] = useState<'male' | 'female' | ''>('')
+  const [sex, setSex] = useState<Sex | ''>('')
 
   // Calculating screen state
   const [calculating, setCalculating] = useState(false)
@@ -202,6 +212,8 @@ export default function OnboardingPage() {
     const weightNum = parseFloat(weight)
     const heightNum = parseFloat(height)
 
+    // Mifflin-St Jeor uses a male/female offset; default to the female offset
+    // (the more conservative estimate) when the user prefers not to say.
     const bmr = sex === 'male'
       ? 10 * weightNum + 6.25 * heightNum - 5 * ageNum + 5
       : 10 * weightNum + 6.25 * heightNum - 5 * ageNum - 161
@@ -517,22 +529,23 @@ export default function OnboardingPage() {
                   className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150"
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-sm font-semibold text-gray-700">Sex</label>
-                <div className="flex gap-3">
-                  {(['male', 'female'] as const).map(option => (
+                <div className="grid grid-cols-3 gap-3">
+                  {sexOptions.map(option => (
                     <button
-                      key={option}
+                      key={option.id}
                       type="button"
-                      onClick={() => setSex(option)}
+                      onClick={() => setSex(option.id)}
                       className={[
-                        'flex-1 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-150 focus:outline-none',
-                        sex === option
+                        'py-3 px-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C7A4B]',
+                        sex === option.id
                           ? 'border-[#2C7A4B] bg-[#f0f9f4] text-[#2C7A4B]'
                           : 'border-gray-200 bg-white text-gray-700 hover:border-[#2C7A4B]/40 hover:bg-gray-50',
                       ].join(' ')}
+                      aria-pressed={sex === option.id}
                     >
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                      {option.label}
                     </button>
                   ))}
                 </div>
