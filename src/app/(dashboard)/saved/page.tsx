@@ -123,7 +123,7 @@ export default function SavedPage() {
           <h2 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 700, fontSize: "1.25rem", color: "var(--color-text)", margin: "0 0 8px" }}>
             No saved recipes yet
           </h2>
-          <p style={{ color: "var(--color-text-3)", fontSize: "0.875rem", margin: "0 0 24px", lineHeight: 1.6 }}>
+          <p style={{ color: "var(--color-text-2)", fontSize: "0.875rem", margin: "0 0 24px", lineHeight: 1.6 }}>
             Save recipes from the generate page to see them here
           </p>
           <Link

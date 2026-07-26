@@ -187,7 +187,7 @@ export default function Sidebar() {
             </span>
             <span style={{
               fontSize: "0.7rem",
-              color: "var(--color-text-3)",
+              color: "var(--color-text-2)",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -218,7 +218,7 @@ export default function Sidebar() {
           border-radius: 8px;
           border: none;
           background: transparent;
-          color: var(--color-text-3);
+          color: var(--color-text-2);
           font-size: 0.8rem;
           font-weight: 500;
           cursor: pointer;
