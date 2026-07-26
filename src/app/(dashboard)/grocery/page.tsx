@@ -296,8 +296,6 @@ export default function GroceryPage() {
               </h2>
               <button
                 onClick={() => handleDeleteGroup(group)}
-                style={{ fontSize: 12, color: "#b0c4b8", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
-                onClick={() => handleDeleteGroup(group.groupId)}
                 title={group.groupId === "group-general" ? "Clear all general items" : "Remove this group"}
                 style={{ fontSize: 12, color: "#4a6b58", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#e57373")}
@@ -336,10 +334,8 @@ export default function GroceryPage() {
                     {/* Item name + quantity */}
                     <span style={{ flex: 1, fontSize: 14, color: item.is_collected ? "#a0b8a8" : "#1a3a28", fontWeight: 500, textDecoration: item.is_collected ? "line-through" : "none", transition: "all 0.15s ease" }}>
                       {item.ingredient_name}
-                    <span style={{ flex: 1, fontSize: 14, color: item.is_collected ? "#4a6b58" : "#1a3a28", fontWeight: 500, textDecoration: item.is_collected ? "line-through" : "none", transition: "all 0.15s ease" }}>
-                      {item.name}
                       {item.quantity && (
-                        <span style={{ fontSize: 13, color: item.is_collected ? "#4a6b58" : "#4a6b58", fontWeight: 400, marginLeft: 8 }}>
+                        <span style={{ fontSize: 13, color: "#4a6b58", fontWeight: 400, marginLeft: 8 }}>
                           {item.quantity}
                         </span>
                       )}
