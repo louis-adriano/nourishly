@@ -136,7 +136,7 @@ export default function RegisterPage() {
           <form className="form" onSubmit={handleSubmit} noValidate>
             <div className={`field${errors.fullName && touched.fullName ? ' field--error' : ''}`}>
               <label className="field-label" htmlFor="fullName">Full Name</label>
-              <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="Jonathan Sebastian" className="field-input" value={fields.fullName} onChange={handleChange} onBlur={handleBlur} aria-describedby={errors.fullName ? 'fullName-error' : undefined} aria-invalid={!!errors.fullName} />
+              <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="John Smith" className="field-input" value={fields.fullName} onChange={handleChange} onBlur={handleBlur} aria-describedby={errors.fullName ? 'fullName-error' : undefined} aria-invalid={!!errors.fullName} />
               {errors.fullName && touched.fullName && (
                 <p id="fullName-error" className="field-error" role="alert">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
