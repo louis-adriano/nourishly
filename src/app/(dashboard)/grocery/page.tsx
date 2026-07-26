@@ -235,7 +235,7 @@ export default function GroceryPage() {
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a3a28", margin: "0 0 4px", letterSpacing: "-0.5px" }}>
           Grocery List
         </h1>
-        <p style={{ fontSize: 13, color: "#7a9a88", margin: 0 }}>
+        <p style={{ fontSize: 13, color: "#4a6b58", margin: 0 }}>
           {totalItems === 0
             ? "Your list is empty — add items below"
             : `${checkedItems} of ${totalItems} item${totalItems === 1 ? "" : "s"} checked`}
@@ -278,7 +278,7 @@ export default function GroceryPage() {
             </svg>
           </div>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1a3a28", margin: "0 0 6px" }}>No items yet</h2>
-          <p style={{ fontSize: 13, color: "#7a9a88", margin: 0, maxWidth: 280, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: "#4a6b58", margin: 0, maxWidth: 280, lineHeight: 1.6 }}>
             Add items manually above or import a recipe&apos;s ingredients from the recipe detail page.
           </p>
         </div>
@@ -297,8 +297,11 @@ export default function GroceryPage() {
               <button
                 onClick={() => handleDeleteGroup(group)}
                 style={{ fontSize: 12, color: "#b0c4b8", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
+                onClick={() => handleDeleteGroup(group.groupId)}
+                title={group.groupId === "group-general" ? "Clear all general items" : "Remove this group"}
+                style={{ fontSize: 12, color: "#4a6b58", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#e57373")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#b0c4b8")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#4a6b58")}
               >
                 {group.groupId === "group-general" ? "Clear all" : "Remove group"}
               </button>
@@ -307,7 +310,7 @@ export default function GroceryPage() {
             {/* Items */}
             <div style={{ border: "1px solid #e8f0eb", borderRadius: 12, overflow: "hidden" }}>
               {group.items.length === 0 ? (
-                <p style={{ fontSize: 13, color: "#b0c4b8", padding: "14px 16px", margin: 0 }}>
+                <p style={{ fontSize: 13, color: "#4a6b58", padding: "14px 16px", margin: 0 }}>
                   No items — add one above.
                 </p>
               ) : (
@@ -333,8 +336,10 @@ export default function GroceryPage() {
                     {/* Item name + quantity */}
                     <span style={{ flex: 1, fontSize: 14, color: item.is_collected ? "#a0b8a8" : "#1a3a28", fontWeight: 500, textDecoration: item.is_collected ? "line-through" : "none", transition: "all 0.15s ease" }}>
                       {item.ingredient_name}
+                    <span style={{ flex: 1, fontSize: 14, color: item.is_collected ? "#4a6b58" : "#1a3a28", fontWeight: 500, textDecoration: item.is_collected ? "line-through" : "none", transition: "all 0.15s ease" }}>
+                      {item.name}
                       {item.quantity && (
-                        <span style={{ fontSize: 13, color: item.is_collected ? "#c5d9ce" : "#7a9a88", fontWeight: 400, marginLeft: 8 }}>
+                        <span style={{ fontSize: 13, color: item.is_collected ? "#4a6b58" : "#4a6b58", fontWeight: 400, marginLeft: 8 }}>
                           {item.quantity}
                         </span>
                       )}

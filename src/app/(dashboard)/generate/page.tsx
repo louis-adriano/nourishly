@@ -1,693 +1,566 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
-type PageState = "idle" | "loading" | "done" | "error";
+interface Nutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
 
 interface Recipe {
   id: string;
   title: string;
   description: string;
-  cook_time_mins: number;
-  nutrition: {
-    calories: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-  };
+  cookTimeMinutes: number;
+  nutrition: Nutrition;
+  ingredients: { name: string; qty: string; unit: string }[];
+  steps: { step: number; text: string }[];
+  tags: string[];
+  accent: string;
+  emoji: string;
 }
 
-export default function GeneratePage() {
-  const [pageState, setPageState] = useState<PageState>("idle");
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+const MOCK_RECIPES: Recipe[] = [
+  {
+    id: "1",
+    title: "Lemon Herb Grilled Chicken",
+    description:
+      "Juicy chicken breast marinated in lemon, garlic, and fresh herbs — light, high-protein, and ready in 30 minutes.",
+    cookTimeMinutes: 30,
+    tags: ["High Protein", "Gluten-Free"],
+    nutrition: { calories: 420, protein: 48, carbs: 8, fat: 22 },
+    accent: "from-green-100 to-green-200",
+    emoji: "🍋",
+    ingredients: [
+      { name: "Chicken breast", qty: "300", unit: "g" },
+      { name: "Lemon", qty: "1", unit: "whole" },
+      { name: "Garlic cloves", qty: "3", unit: "whole" },
+      { name: "Olive oil", qty: "2", unit: "tbsp" },
+      { name: "Fresh thyme", qty: "1", unit: "tbsp" },
+    ],
+    steps: [
+      { step: 1, text: "Whisk lemon juice, garlic, olive oil and thyme in a bowl." },
+      { step: 2, text: "Add chicken and marinate for at least 15 minutes." },
+      { step: 3, text: "Grill over medium-high heat for 6–7 minutes per side." },
+      { step: 4, text: "Rest 5 minutes before slicing and serving." },
+    ],
+  },
+  {
+    id: "2",
+    title: "Mediterranean Chickpea Bowl",
+    description:
+      "A vibrant plant-based bowl loaded with chickpeas, roasted vegetables, and a creamy tahini drizzle.",
+    cookTimeMinutes: 25,
+    tags: ["Vegetarian", "High Fibre"],
+    nutrition: { calories: 510, protein: 22, carbs: 64, fat: 18 },
+    accent: "from-amber-100 to-amber-200",
+    emoji: "🥙",
+    ingredients: [
+      { name: "Chickpeas (canned)", qty: "400", unit: "g" },
+      { name: "Cherry tomatoes", qty: "150", unit: "g" },
+      { name: "Cucumber", qty: "1", unit: "whole" },
+      { name: "Tahini", qty: "3", unit: "tbsp" },
+      { name: "Lemon juice", qty: "2", unit: "tbsp" },
+    ],
+    steps: [
+      { step: 1, text: "Drain and rinse chickpeas, then roast at 200°C for 20 minutes." },
+      { step: 2, text: "Dice cucumber and halve tomatoes." },
+      { step: 3, text: "Whisk tahini with lemon juice and 2 tbsp water." },
+      { step: 4, text: "Assemble bowl and drizzle with tahini dressing." },
+    ],
+  },
+  {
+    id: "3",
+    title: "Ginger Miso Salmon",
+    description:
+      "Omega-rich salmon fillet glazed with a umami-packed ginger miso marinade. On the table in under 20 minutes.",
+    cookTimeMinutes: 20,
+    tags: ["Pescatarian", "Dairy-Free"],
+    nutrition: { calories: 480, protein: 42, carbs: 14, fat: 28 },
+    accent: "from-rose-100 to-rose-200",
+    emoji: "🐟",
+    ingredients: [
+      { name: "Salmon fillet", qty: "200", unit: "g" },
+      { name: "White miso paste", qty: "2", unit: "tbsp" },
+      { name: "Fresh ginger", qty: "1", unit: "tsp" },
+      { name: "Soy sauce", qty: "1", unit: "tbsp" },
+      { name: "Sesame oil", qty: "1", unit: "tsp" },
+    ],
+    steps: [
+      { step: 1, text: "Mix miso, ginger, soy sauce and sesame oil into a glaze." },
+      { step: 2, text: "Coat salmon fillet and rest for 10 minutes." },
+      { step: 3, text: "Bake at 200°C for 12–14 minutes until caramelised." },
+    ],
+  },
+];
 
-  async function handleGenerate() {
-    setPageState("loading");
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/recipes", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error ?? "Failed to generate recipes");
-        setPageState("error");
-        return;
-      }
-      setRecipes(data.recipes);
-      setPageState("done");
-    } catch {
-      setErrorMsg("Network error — please try again");
-      setPageState("error");
-    }
-  }
+// ─── Macro chip ───────────────────────────────────────────────────────────────
 
-  function handleGenerateAgain() {
-    setRecipes([]);
-    handleGenerate();
-  }
-
+function MacroChip({
+  label,
+  value,
+  unit,
+  bg,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  bg: string;
+}) {
   return (
-    <div className="page">
-      {/* ── Header ── */}
-      <div className="page-header">
-        <div className="header-text">
-          <h1 className="page-title">AI Recipe Generator</h1>
-          <p className="page-subtitle">
-            Let AI create personalised recipes based on your health goals and preferences
-          </p>
-        </div>
-
-        <div className="header-actions">
-          {(pageState === "done" || pageState === "error") && (
-            <button
-              className="generate-again-btn"
-              onClick={handleGenerateAgain}
-              type="button"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
-              </svg>
-              Generate Again
-            </button>
-          )}
-          <button
-            className={`generate-btn${pageState === "loading" ? " generate-btn--loading" : ""}`}
-            onClick={handleGenerate}
-            disabled={pageState === "loading" || pageState === "done" || pageState === "error"}
-            type="button"
-          >
-            {pageState === "loading" ? (
-              <>
-                <span className="btn-spinner" aria-hidden="true" />
-                Cooking up ideas…
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-                Generate Recipes
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Divider ── */}
-      <div className="divider" />
-
-      {/* ── Content area ── */}
-      <div className={`content-area${pageState === "done" ? " content-area--grid" : ""}`}>
-        {pageState === "idle" && <EmptyState />}
-        {pageState === "loading" && <LoadingState />}
-        {pageState === "error" && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
-        {pageState === "done" && <RecipeGrid recipes={recipes} />}
-      </div>
-
-      <style jsx>{`
-        .page {
-          display: flex;
-          flex-direction: column;
-          min-height: calc(100vh - 64px);
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-
-        /* ── Header ── */
-        .page-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 24px;
-          flex-wrap: wrap;
-        }
-        .page-title {
-          font-size: 24px;
-          font-weight: 800;
-          color: #1a3a28;
-          letter-spacing: -0.5px;
-          margin: 0 0 4px;
-        }
-        .page-subtitle {
-          font-size: 14px;
-          color: #7a9a88;
-          margin: 0;
-          max-width: 440px;
-          line-height: 1.5;
-        }
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-shrink: 0;
-        }
-
-        /* ── Generate button ── */
-        .generate-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 22px;
-          border-radius: 12px;
-          border: none;
-          background: #2C7A4B;
-          color: #fff;
-          font-size: 14px;
-          font-weight: 700;
-          font-family: inherit;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
-        }
-        .generate-btn:hover:not(:disabled) {
-          background: #245f3c;
-        }
-        .generate-btn:active:not(:disabled) {
-          transform: scale(0.97);
-        }
-        .generate-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .generate-btn--loading {
-          opacity: 0.8 !important;
-          cursor: not-allowed !important;
-        }
-        .btn-spinner {
-          display: inline-block;
-          width: 14px;
-          height: 14px;
-          border: 2px solid rgba(255,255,255,0.35);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          flex-shrink: 0;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        /* ── Generate Again button ── */
-        .generate-again-btn {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          padding: 11px 18px;
-          border-radius: 12px;
-          border: 1.5px solid #d4e6da;
-          background: #fff;
-          color: #2C7A4B;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: background 0.15s ease, border-color 0.15s ease;
-        }
-        .generate-again-btn:hover {
-          background: #eaf4ee;
-          border-color: #2C7A4B;
-        }
-
-        /* ── Divider ── */
-        .divider {
-          height: 1px;
-          background: #e8f0eb;
-          margin: 24px 0;
-        }
-
-        /* ── Content area ── */
-        .content-area {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .content-area--grid {
-          align-items: flex-start;
-          justify-content: flex-start;
-        }
-      `}</style>
+    <div className={`flex flex-col items-center px-2 py-1.5 rounded-xl ${bg}`}>
+      <span className="text-xs text-gray-600">{label}</span>
+      <span className="text-sm font-bold text-gray-800">
+        {value}
+        <span className="text-xs font-normal text-gray-600 ml-0.5">{unit}</span>
+      </span>
     </div>
   );
 }
 
-/* ── Recipe cards grid ── */
-function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
-  const router = useRouter();
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
+function EmptyState({ onGenerate }: { onGenerate: () => void }) {
   return (
-    <div className="grid-wrapper">
-      <p className="grid-meta">{recipes.length} recipes generated for you</p>
-      <div className="recipe-grid">
-        {recipes.map((recipe, i) => (
-          <RecipeCard
-            key={recipe.id}
-            recipe={recipe}
-            index={i}
-            onClick={() => router.push(`/generate/${recipe.id}`)}
-          />
+    <div className="flex flex-col items-center justify-center flex-1 py-20 px-6 text-center">
+      <div className="relative mb-10">
+        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shadow-lg">
+          <span className="text-5xl">🍽️</span>
+        </div>
+        <span className="absolute top-1 right-2 w-3 h-3 rounded-full bg-green-400 opacity-40" />
+        <span className="absolute bottom-2 left-1 w-2 h-2 rounded-full bg-green-300 opacity-30" />
+      </div>
+
+      <h2 className="text-2xl font-semibold text-gray-800 mb-3">
+        Your recipes will appear here
+      </h2>
+      <p className="text-sm text-gray-500 mb-2 max-w-sm leading-relaxed">
+        We&apos;ll use your{" "}
+        <strong className="text-green-700">health goal</strong>,{" "}
+        <strong className="text-green-700">dietary preferences</strong>, and{" "}
+        <strong className="text-green-700">cuisine choices</strong> from onboarding to generate
+        personalised recipes just for you.
+      </p>
+      <p className="text-xs text-gray-600 mb-10">
+        Powered by Claude AI · Usually takes 5–10 seconds
+      </p>
+
+      <button
+        onClick={onGenerate}
+        className="flex items-center gap-2 px-8 py-3.5 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-lg hover:shadow-green-300 hover:scale-105 active:scale-95 transition-all duration-200"
+      >
+        <span>✦</span>
+        Generate Recipes
+      </button>
+
+      <div className="flex flex-wrap gap-2 justify-center mt-10">
+        {["High Protein", "Vegetarian", "Gluten-Free", "Dairy-Free", "Quick Meals"].map((t) => (
+          <span
+            key={t}
+            className="text-xs px-3 py-1 rounded-full border border-green-700 text-green-800 font-medium"
+          >
+            {t}
+          </span>
         ))}
       </div>
-
-      <style jsx>{`
-        .grid-wrapper {
-          width: 100%;
-          animation: fadeUp 0.35s ease both;
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .grid-meta {
-          font-size: 13px;
-          color: #7a9a88;
-          margin: 0 0 16px;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-        .recipe-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 16px;
-        }
-      `}</style>
     </div>
   );
 }
 
-/* ── Single recipe card ── */
+// ─── Loading spinner ──────────────────────────────────────────────────────────
+
+function LoadingSpinner() {
+  const tips = [
+    "Analysing your health goal…",
+    "Picking the best ingredients…",
+    "Calculating nutrition facts…",
+    "Finalising your recipes…",
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 py-24 gap-8">
+      <div className="relative w-20 h-20">
+        <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping" />
+        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shadow-md">
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-green-600 border-r-green-300 animate-spin" />
+          <span className="text-3xl">🍳</span>
+        </div>
+      </div>
+
+      <div className="text-center">
+        <p className="font-semibold text-gray-800">Cooking up your recipes…</p>
+        <p className="text-xs text-gray-600 mt-1">Powered by Claude AI</p>
+      </div>
+
+      <div className="flex flex-col gap-2 w-full max-w-xs">
+        {tips.map((tip, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div
+              className="w-1.5 h-1.5 rounded-full bg-green-500 opacity-50 animate-pulse"
+              style={{ animationDelay: `${i * 0.3}s` }}
+            />
+            <p className="text-xs text-gray-500">{tip}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Recipe card ──────────────────────────────────────────────────────────────
+
 function RecipeCard({
   recipe,
-  index,
   onClick,
 }: {
   recipe: Recipe;
-  index: number;
-  onClick: () => void;
+  onClick: (r: Recipe) => void;
 }) {
-  const CARD_COLORS = ["#eaf4ee", "#fef9ec", "#eef4fb", "#fdf0f0"];
-  const ACCENT_COLORS = ["#2C7A4B", "#b07d1a", "#2a6aa8", "#b03a3a"];
-  const bg = CARD_COLORS[index % CARD_COLORS.length];
-  const accent = ACCENT_COLORS[index % ACCENT_COLORS.length];
-
   return (
-    <button className="card" onClick={onClick} type="button" style={{ animationDelay: `${index * 0.08}s` }}>
-      {/* Color strip */}
-      <div className="card-strip" style={{ background: accent }} />
+    <button
+      onClick={() => onClick(recipe)}
+      className="group text-left w-full rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-green-200 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-green-600 focus-visible:outline-offset-2"
+    >
+      {/* Gradient header */}
+      <div className={`relative h-24 bg-gradient-to-br ${recipe.accent} flex items-center justify-between px-5`}>
+        <span className="text-5xl drop-shadow-sm">{recipe.emoji}</span>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm text-xs font-semibold text-gray-700">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="#2C7A4B" strokeWidth="1.3" />
+            <path d="M6 3.5v2.5l2 1" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+          {recipe.cookTimeMinutes} min
+        </div>
+        {/* Green left border on hover */}
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-600 rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      </div>
 
-      <div className="card-body">
-        {/* Title */}
-        <h3 className="card-title">{recipe.title}</h3>
-
-        {/* Description */}
-        <p className="card-description">{recipe.description}</p>
-
-        {/* Meta row */}
-        <div className="card-meta">
-          <span className="meta-chip">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-            </svg>
-            {recipe.cook_time_mins} min
-          </span>
-          <span className="meta-chip meta-chip--cal" style={{ background: bg, color: accent }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            {recipe.nutrition.calories} kcal
-          </span>
+      {/* Body */}
+      <div className="p-4">
+        <div className="flex flex-wrap gap-1.5 mb-2.5">
+          {recipe.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-green-50 text-green-700"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
 
-        {/* View arrow */}
-        <div className="card-arrow" style={{ color: accent }}>
-          View recipe
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+        <h3 className="font-semibold text-base text-gray-800 leading-snug mb-2">
+          {recipe.title}
+        </h3>
+        <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-2">
+          {recipe.description}
+        </p>
+
+        {/* Macros */}
+        <div className="grid grid-cols-4 gap-1.5">
+          <MacroChip label="Cal" value={recipe.nutrition.calories} unit="kcal" bg="bg-green-50" />
+          <MacroChip label="Protein" value={recipe.nutrition.protein} unit="g" bg="bg-blue-50" />
+          <MacroChip label="Carbs" value={recipe.nutrition.carbs} unit="g" bg="bg-amber-50" />
+          <MacroChip label="Fat" value={recipe.nutrition.fat} unit="g" bg="bg-rose-50" />
+        </div>
+
+        {/* View cue */}
+        <div className="flex items-center justify-end gap-1 mt-3 text-xs font-medium text-green-700 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          View full recipe
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2.5 6h7M6.5 3l3 3-3 3" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>
-
-      <style jsx>{`
-        .card {
-          display: flex;
-          flex-direction: column;
-          background: #fff;
-          border: 1.5px solid #e8f0eb;
-          border-radius: 16px;
-          overflow: hidden;
-          cursor: pointer;
-          text-align: left;
-          padding: 0;
-          width: 100%;
-          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-          animation: cardReveal 0.4s ease both;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-        @keyframes cardReveal {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 24px rgba(44,122,75,0.12);
-          border-color: #b8d9c4;
-        }
-        .card:active {
-          transform: translateY(-1px);
-        }
-        .card-strip {
-          height: 5px;
-          width: 100%;
-          flex-shrink: 0;
-        }
-        .card-body {
-          padding: 18px 20px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          flex: 1;
-        }
-        .card-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0;
-          letter-spacing: -0.2px;
-          line-height: 1.3;
-        }
-        .card-description {
-          font-size: 13px;
-          color: #7a9a88;
-          margin: 0;
-          line-height: 1.55;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .card-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 2px;
-        }
-        .meta-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
-          border-radius: 20px;
-          background: #f2f6f4;
-          color: #5a7a68;
-          font-size: 12px;
-          font-weight: 600;
-        }
-        .meta-chip--cal {
-          background: #eaf4ee;
-        }
-        .card-arrow {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 12px;
-          font-weight: 700;
-          margin-top: 6px;
-          transition: gap 0.15s ease;
-        }
-        .card:hover .card-arrow {
-          gap: 8px;
-        }
-      `}</style>
     </button>
   );
 }
 
-/* ── Error state ── */
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="error-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e57373" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <h2 className="error-title">Could not generate recipes</h2>
-      <p className="error-body">{message}</p>
-      <button className="retry-btn" onClick={onRetry} type="button">Try again</button>
+// ─── Recipe detail modal ──────────────────────────────────────────────────────
 
-      <style jsx>{`
-        .error-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          max-width: 360px;
-          padding: 40px 24px;
-          gap: 12px;
-          animation: fadeUp 0.3s ease both;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .error-title {
-          font-size: 18px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0;
-          letter-spacing: -0.3px;
-        }
-        .error-body {
-          font-size: 14px;
-          color: #7a9a88;
-          margin: 0;
-          line-height: 1.6;
-        }
-        .retry-btn {
-          margin-top: 4px;
-          padding: 10px 22px;
-          border-radius: 10px;
-          border: 1.5px solid #d4e6da;
-          background: #fff;
-          color: #2C7A4B;
-          font-size: 14px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
-        }
-        .retry-btn:hover {
-          background: #eaf4ee;
-          border-color: #2C7A4B;
-        }
-      `}</style>
-    </div>
-  );
-}
+function RecipeDetail({
+  recipe,
+  onClose,
+}: {
+  recipe: Recipe;
+  onClose: () => void;
+}) {
+  const [cookStatus, setCookStatus] = useState<"idle" | "loading" | "done" | "duplicate" | "error">("idle");
 
-/* ── Empty state ── */
-function EmptyState() {
+  async function handleMarkAsCooked() {
+    setCookStatus("loading");
+    try {
+      const res = await fetch("/api/meal-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe_id: recipe.id,
+          calories: recipe.nutrition.calories,
+          protein_g: recipe.nutrition.protein,
+          carbs_g: recipe.nutrition.carbs,
+          fat_g: recipe.nutrition.fat,
+        }),
+      });
+
+      if (res.status === 409) {
+        setCookStatus("duplicate");
+        return;
+      }
+
+      if (!res.ok) throw new Error("Failed to log meal");
+
+      setCookStatus("done");
+    } catch {
+      setCookStatus("error");
+    }
+  }
+
   return (
-    <div className="empty-state">
-      <div className="empty-icon" aria-hidden="true">
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="11" fill="#eaf4ee" />
-          <path d="M9 12c0-1.7 1.3-3 3-3s3 1.3 3 3" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M12 9v6" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M8 17h8" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      </div>
-      <h2 className="empty-title">Ready to discover new recipes?</h2>
-      <p className="empty-body">
-        Click <strong>Generate Recipes</strong> above and we&apos;ll create personalised
-        recipe suggestions tailored to your nutrition goals and taste preferences.
-      </p>
-      <div className="empty-hints">
-        {["Matches your health goal", "Respects your dietary needs", "Cuisine you actually enjoy"].map((hint) => (
-          <span key={hint} className="hint-chip">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2C7A4B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="20 6 9 17 4 12" />
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl overflow-hidden bg-white shadow-2xl"
+        style={{ maxHeight: "88vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal header */}
+        <div className={`relative px-6 pt-6 pb-5 bg-gradient-to-br ${recipe.accent}`}>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-sm font-medium text-gray-600 hover:bg-white transition-colors"
+          >
+            ✕
+          </button>
+          <span className="text-4xl block mb-3">{recipe.emoji}</span>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {recipe.tags.map((tag) => (
+              <span
+                key={tag}
+                className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-white/70 text-green-700"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 leading-snug mb-1">
+            {recipe.title}
+          </h2>
+          <p className="text-xs text-gray-600 leading-relaxed">{recipe.description}</p>
+          <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-green-700">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <circle cx="6.5" cy="6.5" r="5.5" stroke="#2C7A4B" strokeWidth="1.3" />
+              <path d="M6.5 4v2.5l1.5 1" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
-            {hint}
-          </span>
-        ))}
-      </div>
+            {recipe.cookTimeMinutes} minutes
+          </div>
+        </div>
 
-      <style jsx>{`
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          max-width: 400px;
-          padding: 40px 24px;
-          animation: fadeUp 0.4s ease both;
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .empty-icon { margin-bottom: 20px; }
-        .empty-title {
-          font-size: 18px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0 0 10px;
-          letter-spacing: -0.3px;
-        }
-        .empty-body {
-          font-size: 14px;
-          color: #7a9a88;
-          line-height: 1.6;
-          margin: 0 0 24px;
-        }
-        .empty-hints {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: center;
-        }
-        .hint-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 6px 12px;
-          border-radius: 20px;
-          background: #eaf4ee;
-          color: #2C7A4B;
-          font-size: 12px;
-          font-weight: 600;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-        }
-      `}</style>
-    </div>
-  );
-}
+        {/* Nutrition */}
+        <div className="grid grid-cols-4 gap-2 px-6 py-4 border-b border-gray-100">
+          <MacroChip label="Calories" value={recipe.nutrition.calories} unit="kcal" bg="bg-green-50" />
+          <MacroChip label="Protein" value={recipe.nutrition.protein} unit="g" bg="bg-blue-50" />
+          <MacroChip label="Carbs" value={recipe.nutrition.carbs} unit="g" bg="bg-amber-50" />
+          <MacroChip label="Fat" value={recipe.nutrition.fat} unit="g" bg="bg-rose-50" />
+        </div>
 
-/* ── Loading state ── */
-function LoadingState() {
-  const steps = [
-    "Reading your nutrition profile…",
-    "Crafting personalised recipes…",
-    "Calculating nutrition facts…",
-    "Almost ready…",
-  ];
+        {/* Ingredients */}
+        <div className="px-6 pt-5 pb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-3">
+            Ingredients
+          </h3>
+          <ul className="space-y-2">
+            {recipe.ingredients.map((ing, i) => (
+              <li
+                key={i}
+                className={`flex items-center gap-3 text-sm px-3 py-1.5 rounded-lg ${i % 2 === 0 ? "bg-gray-50" : ""}`}
+              >
+                <span className="w-2 h-2 rounded-full bg-green-500 opacity-60 shrink-0" />
+                <span className="flex-1 font-medium text-gray-700">{ing.name}</span>
+                <span className="text-xs font-semibold text-gray-600">
+                  {ing.qty} {ing.unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-  return (
-    <div className="loading-state">
-      <div className="loading-ring" aria-label="Generating recipes" role="status">
-        <div className="ring ring--outer" />
-        <div className="ring ring--inner" />
-        <div className="loading-icon" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" fill="#eaf4ee" />
-            <path d="M9 12c0-1.7 1.3-3 3-3s3 1.3 3 3" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M12 9v6" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
+        {/* Steps */}
+        <div className="px-6 pb-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-3">
+            Method
+          </h3>
+          <ol className="space-y-4">
+            {recipe.steps.map((s) => (
+              <li key={s.step} className="flex gap-4">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center shadow-sm mt-0.5">
+                  {s.step}
+                </span>
+                <p className="text-sm text-gray-600 leading-relaxed">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* ── Mark as Cooked ── */}
+        <div className="px-6 pb-7 pt-2">
+
+          {/* Status messages */}
+          {cookStatus === "done" && (
+            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3">
+              <span className="text-base">✅</span>
+              <span className="font-medium">Logged! This recipe has been added to today&apos;s meal log.</span>
+            </div>
+          )}
+          {cookStatus === "duplicate" && (
+            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3">
+              <span className="text-base">⚠️</span>
+              <span className="font-medium">You&apos;ve already logged this recipe today.</span>
+            </div>
+          )}
+          {cookStatus === "error" && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+              <span className="text-base">❌</span>
+              <span className="font-medium">Something went wrong. Please try again.</span>
+            </div>
+          )}
+
+          {/* Button */}
+          <button
+            onClick={handleMarkAsCooked}
+            disabled={cookStatus === "loading" || cookStatus === "done" || cookStatus === "duplicate"}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+            style={{
+              background:
+                cookStatus === "done" || cookStatus === "duplicate"
+                  ? "#9ca3af"
+                  : "linear-gradient(135deg, #2C7A4B 0%, #3fac6a 100%)",
+              boxShadow:
+                cookStatus === "done" || cookStatus === "duplicate"
+                  ? "none"
+                  : "0 4px 14px rgba(44,122,75,0.35)",
+            }}
+          >
+            {cookStatus === "loading" && (
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
+              </svg>
+            )}
+            {cookStatus === "idle" || cookStatus === "error" ? "🍳 Mark as Cooked" : null}
+            {cookStatus === "loading" ? "Saving…" : null}
+            {cookStatus === "done" ? "✓ Logged Today" : null}
+            {cookStatus === "duplicate" ? "✓ Already Logged Today" : null}
+          </button>
         </div>
       </div>
-      <h2 className="loading-title">Cooking up your recipes…</h2>
-      <p className="loading-sub">Claude is thinking. This usually takes a few seconds.</p>
-      <div className="loading-steps" role="list">
-        {steps.map((step, i) => (
-          <div key={step} className="loading-step" role="listitem" style={{ animationDelay: `${i * 0.6}s` }}>
-            <span className="step-dot" style={{ animationDelay: `${i * 0.6}s` }} aria-hidden="true" />
-            <span className="step-text">{step}</span>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function GeneratePage() {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [selected, setSelected] = useState<Recipe | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleGenerate() {
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      // ── Swap for real API once /api/recipes is ready ──────────────────────
+      // const res = await fetch("/api/recipes", { method: "POST" });
+      // if (!res.ok) throw new Error("Failed to generate recipes");
+      // const data = await res.json();
+      // setRecipes(data.recipes);
+      // ─────────────────────────────────────────────────────────────────────
+      await new Promise((res) => setTimeout(res, 2500));
+      setRecipes(MOCK_RECIPES);
+      setStatus("done");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+
+      {/* Header */}
+      <div className="px-8 pt-8 pb-6 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-50 text-green-700">
+                AI Powered
+              </span>
+              <h1 className="text-3xl font-semibold text-gray-800 mt-1 leading-tight">
+                Generate Recipes
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                {status === "done"
+                  ? `${recipes.length} recipes tailored to your profile — click any card for the full recipe.`
+                  : "Personalised to your health goal, diet & cuisine preferences"}
+              </p>
+            </div>
+
+            {status !== "idle" && (
+              <button
+                onClick={handleGenerate}
+                disabled={status === "loading"}
+                className="flex items-center gap-2 px-6 py-3 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-md hover:shadow-green-200 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                <span>✦</span>
+                {status === "loading" ? "Generating…" : "Generate Again"}
+              </button>
+            )}
           </div>
-        ))}
+        </div>
       </div>
 
-      <style jsx>{`
-        .loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          padding: 40px 24px;
-          animation: fadeUp 0.3s ease both;
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .loading-ring {
-          position: relative;
-          width: 80px;
-          height: 80px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 24px;
-        }
-        .ring {
-          position: absolute;
-          border-radius: 50%;
-          border: 3px solid transparent;
-        }
-        .ring--outer {
-          width: 80px;
-          height: 80px;
-          border-top-color: #2C7A4B;
-          border-right-color: #2C7A4B;
-          animation: spin 1.2s linear infinite;
-        }
-        .ring--inner {
-          width: 58px;
-          height: 58px;
-          border-bottom-color: #7ec99a;
-          border-left-color: #7ec99a;
-          animation: spin 0.8s linear infinite reverse;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-icon { position: relative; z-index: 1; }
-        .loading-title {
-          font-size: 18px;
-          font-weight: 700;
-          color: #1a3a28;
-          margin: 0 0 6px;
-          letter-spacing: -0.3px;
-        }
-        .loading-sub {
-          font-size: 13px;
-          color: #7a9a88;
-          margin: 0 0 28px;
-        }
-        .loading-steps {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          align-items: flex-start;
-        }
-        .loading-step {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          opacity: 0;
-          animation: stepReveal 0.4s ease forwards;
-        }
-        @keyframes stepReveal {
-          from { opacity: 0; transform: translateX(-8px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        .step-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #2C7A4B;
-          flex-shrink: 0;
-          animation: dotPulse 1.2s ease-in-out infinite;
-        }
-        @keyframes dotPulse {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50%       { opacity: 1;   transform: scale(1.3); }
-        }
-        .step-text {
-          font-size: 13px;
-          color: #4a7a5c;
-          font-family: 'DM Sans', 'Nunito', sans-serif;
-          font-weight: 500;
-        }
-      `}</style>
+      {/* Body */}
+      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-8 py-8">
+
+        {status === "idle" && <EmptyState onGenerate={handleGenerate} />}
+        {status === "loading" && <LoadingSpinner />}
+
+        {status === "error" && (
+          <div className="flex flex-col items-center justify-center flex-1 py-24 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-5 shadow-sm">
+              ⚠️
+            </div>
+            <p className="font-semibold text-gray-800 mb-1">Something went wrong</p>
+            <p className="text-sm text-gray-600 mb-6 max-w-xs">{errorMsg}</p>
+            <button
+              onClick={handleGenerate}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-md hover:shadow-green-200 hover:scale-105 active:scale-95 transition-all duration-200"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {status === "done" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {recipes.map((recipe, i) => (
+              <div
+                key={recipe.id}
+                className="animate-[fadeUp_0.45s_ease_both]"
+                style={{ animationDelay: `${i * 0.13}s` }}
+              >
+                <RecipeCard recipe={recipe} onClick={setSelected} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selected && (
+        <RecipeDetail recipe={selected} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }
