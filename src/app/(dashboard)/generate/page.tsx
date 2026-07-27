@@ -1,566 +1,1054 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-interface Nutrition {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
+type PageState = "idle" | "loading" | "done" | "error";
 
 interface Recipe {
   id: string;
   title: string;
   description: string;
-  cookTimeMinutes: number;
-  nutrition: Nutrition;
-  ingredients: { name: string; qty: string; unit: string }[];
-  steps: { step: number; text: string }[];
-  tags: string[];
-  accent: string;
-  emoji: string;
+  cuisine?: string;
+  cook_time_mins: number;
+  ingredients?: Array<string | { name: string; unit?: string; quantity?: number | string }>;
+  nutrition: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  };
 }
 
-const MOCK_RECIPES: Recipe[] = [
-  {
-    id: "1",
-    title: "Lemon Herb Grilled Chicken",
-    description:
-      "Juicy chicken breast marinated in lemon, garlic, and fresh herbs — light, high-protein, and ready in 30 minutes.",
-    cookTimeMinutes: 30,
-    tags: ["High Protein", "Gluten-Free"],
-    nutrition: { calories: 420, protein: 48, carbs: 8, fat: 22 },
-    accent: "from-green-100 to-green-200",
-    emoji: "🍋",
-    ingredients: [
-      { name: "Chicken breast", qty: "300", unit: "g" },
-      { name: "Lemon", qty: "1", unit: "whole" },
-      { name: "Garlic cloves", qty: "3", unit: "whole" },
-      { name: "Olive oil", qty: "2", unit: "tbsp" },
-      { name: "Fresh thyme", qty: "1", unit: "tbsp" },
-    ],
-    steps: [
-      { step: 1, text: "Whisk lemon juice, garlic, olive oil and thyme in a bowl." },
-      { step: 2, text: "Add chicken and marinate for at least 15 minutes." },
-      { step: 3, text: "Grill over medium-high heat for 6–7 minutes per side." },
-      { step: 4, text: "Rest 5 minutes before slicing and serving." },
-    ],
-  },
-  {
-    id: "2",
-    title: "Mediterranean Chickpea Bowl",
-    description:
-      "A vibrant plant-based bowl loaded with chickpeas, roasted vegetables, and a creamy tahini drizzle.",
-    cookTimeMinutes: 25,
-    tags: ["Vegetarian", "High Fibre"],
-    nutrition: { calories: 510, protein: 22, carbs: 64, fat: 18 },
-    accent: "from-amber-100 to-amber-200",
-    emoji: "🥙",
-    ingredients: [
-      { name: "Chickpeas (canned)", qty: "400", unit: "g" },
-      { name: "Cherry tomatoes", qty: "150", unit: "g" },
-      { name: "Cucumber", qty: "1", unit: "whole" },
-      { name: "Tahini", qty: "3", unit: "tbsp" },
-      { name: "Lemon juice", qty: "2", unit: "tbsp" },
-    ],
-    steps: [
-      { step: 1, text: "Drain and rinse chickpeas, then roast at 200°C for 20 minutes." },
-      { step: 2, text: "Dice cucumber and halve tomatoes." },
-      { step: 3, text: "Whisk tahini with lemon juice and 2 tbsp water." },
-      { step: 4, text: "Assemble bowl and drizzle with tahini dressing." },
-    ],
-  },
-  {
-    id: "3",
-    title: "Ginger Miso Salmon",
-    description:
-      "Omega-rich salmon fillet glazed with a umami-packed ginger miso marinade. On the table in under 20 minutes.",
-    cookTimeMinutes: 20,
-    tags: ["Pescatarian", "Dairy-Free"],
-    nutrition: { calories: 480, protein: 42, carbs: 14, fat: 28 },
-    accent: "from-rose-100 to-rose-200",
-    emoji: "🐟",
-    ingredients: [
-      { name: "Salmon fillet", qty: "200", unit: "g" },
-      { name: "White miso paste", qty: "2", unit: "tbsp" },
-      { name: "Fresh ginger", qty: "1", unit: "tsp" },
-      { name: "Soy sauce", qty: "1", unit: "tbsp" },
-      { name: "Sesame oil", qty: "1", unit: "tsp" },
-    ],
-    steps: [
-      { step: 1, text: "Mix miso, ginger, soy sauce and sesame oil into a glaze." },
-      { step: 2, text: "Coat salmon fillet and rest for 10 minutes." },
-      { step: 3, text: "Bake at 200°C for 12–14 minutes until caramelised." },
-    ],
-  },
-];
+// ── Display helpers ───────────────────────────────────────────────────────────
 
-// ─── Macro chip ───────────────────────────────────────────────────────────────
-
-function MacroChip({
-  label,
-  value,
-  unit,
-  bg,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  bg: string;
-}) {
-  return (
-    <div className={`flex flex-col items-center px-2 py-1.5 rounded-xl ${bg}`}>
-      <span className="text-xs text-gray-600">{label}</span>
-      <span className="text-sm font-bold text-gray-800">
-        {value}
-        <span className="text-xs font-normal text-gray-600 ml-0.5">{unit}</span>
-      </span>
-    </div>
-  );
+function getRecipeEmoji(title: string): string {
+  const t = title.toLowerCase();
+  if (/soup|stew|broth|curry/.test(t)) return "🍲";
+  if (/noodle|ramen|pasta|spaghetti|glass noodles/.test(t)) return "🍝";
+  if (/rice|bibimbap|congee|fried rice/.test(t)) return "🍚";
+  if (/fish|salmon|tuna|seafood|shrimp/.test(t)) return "🐟";
+  if (/chicken/.test(t)) return "🍗";
+  if (/beef|pork|meat|bulgogi|steak|bbq/.test(t)) return "🥩";
+  if (/stir.?fry/.test(t)) return "🥘";
+  if (/dumpling|wonton|gyoza/.test(t)) return "🥟";
+  if (/tofu|tempeh/.test(t)) return "🫘";
+  if (/salad|bowl|vegetable|veg/.test(t)) return "🥗";
+  return "🍽️";
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function EmptyState({ onGenerate }: { onGenerate: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center flex-1 py-20 px-6 text-center">
-      <div className="relative mb-10">
-        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shadow-lg">
-          <span className="text-5xl">🍽️</span>
-        </div>
-        <span className="absolute top-1 right-2 w-3 h-3 rounded-full bg-green-400 opacity-40" />
-        <span className="absolute bottom-2 left-1 w-2 h-2 rounded-full bg-green-300 opacity-30" />
-      </div>
-
-      <h2 className="text-2xl font-semibold text-gray-800 mb-3">
-        Your recipes will appear here
-      </h2>
-      <p className="text-sm text-gray-500 mb-2 max-w-sm leading-relaxed">
-        We&apos;ll use your{" "}
-        <strong className="text-green-700">health goal</strong>,{" "}
-        <strong className="text-green-700">dietary preferences</strong>, and{" "}
-        <strong className="text-green-700">cuisine choices</strong> from onboarding to generate
-        personalised recipes just for you.
-      </p>
-      <p className="text-xs text-gray-600 mb-10">
-        Powered by Claude AI · Usually takes 5–10 seconds
-      </p>
-
-      <button
-        onClick={onGenerate}
-        className="flex items-center gap-2 px-8 py-3.5 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-lg hover:shadow-green-300 hover:scale-105 active:scale-95 transition-all duration-200"
-      >
-        <span>✦</span>
-        Generate Recipes
-      </button>
-
-      <div className="flex flex-wrap gap-2 justify-center mt-10">
-        {["High Protein", "Vegetarian", "Gluten-Free", "Dairy-Free", "Quick Meals"].map((t) => (
-          <span
-            key={t}
-            className="text-xs px-3 py-1 rounded-full border border-green-700 text-green-800 font-medium"
-          >
-            {t}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+function getRecipeCuisine(recipe: { title: string; cuisine?: string }): string {
+  if (recipe.cuisine) return recipe.cuisine;
+  const t = recipe.title.toLowerCase();
+  if (/korean|bulgogi|kimchi|bibimbap/.test(t)) return "Korean";
+  if (/japanese|ramen|sushi|teriyaki|miso/.test(t)) return "Japanese";
+  if (/italian|pasta|risotto|pizza/.test(t)) return "Italian";
+  if (/mexican|taco|burrito|enchilada/.test(t)) return "Mexican";
+  if (/indian|curry|masala|tikka/.test(t)) return "Indian";
+  if (/thai|pad thai|tom yum/.test(t)) return "Thai";
+  if (/mediterranean|greek|hummus/.test(t)) return "Mediterranean";
+  if (/american|burger|bbq/.test(t)) return "American";
+  return "Recipe";
 }
 
-// ─── Loading spinner ──────────────────────────────────────────────────────────
+// ── Preferences config ────────────────────────────────────────────────────────
 
-function LoadingSpinner() {
-  const tips = [
-    "Analysing your health goal…",
-    "Picking the best ingredients…",
-    "Calculating nutrition facts…",
-    "Finalising your recipes…",
-  ];
+const HEALTH_GOALS = ["Weight Loss", "Muscle Gain", "General Wellness", "Maintain Weight", "Healthy Eating"];
+const DIETARY_OPTIONS = ["Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Nut-Free", "Halal", "Kosher"];
+const CUISINE_OPTIONS = ["Korean", "Japanese", "Italian", "Mexican", "Indian", "Thai", "Mediterranean", "American", "Chinese", "Vietnamese"];
 
-  return (
-    <div className="flex flex-col items-center justify-center flex-1 py-24 gap-8">
-      <div className="relative w-20 h-20">
-        <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping" />
-        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shadow-md">
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-green-600 border-r-green-300 animate-spin" />
-          <span className="text-3xl">🍳</span>
-        </div>
-      </div>
+// ── Page ─────────────────────────────────────────────────────────────────────
 
-      <div className="text-center">
-        <p className="font-semibold text-gray-800">Cooking up your recipes…</p>
-        <p className="text-xs text-gray-600 mt-1">Powered by Claude AI</p>
-      </div>
+const SECTION_LABEL_STYLE = {
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  color: "var(--color-green)",
+  textTransform: "uppercase" as const,
+  margin: "0 0 10px",
+};
 
-      <div className="flex flex-col gap-2 w-full max-w-xs">
-        {tips.map((tip, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div
-              className="w-1.5 h-1.5 rounded-full bg-green-500 opacity-50 animate-pulse"
-              style={{ animationDelay: `${i * 0.3}s` }}
-            />
-            <p className="text-xs text-gray-500">{tip}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function chipStyle(active: boolean) {
+  return {
+    background: active ? "var(--color-green)" : "transparent",
+    color: active ? "white" : "var(--color-text-2)",
+    border: active ? "none" : "1.5px solid var(--color-border)",
+    borderRadius: "20px",
+    padding: "8px 16px",
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-body), system-ui, sans-serif",
+    transition: "all 0.15s ease",
+  } as const;
 }
 
-// ─── Recipe card ──────────────────────────────────────────────────────────────
+export default function GeneratePage() {
+  const [pageState, setPageState] = useState<PageState>("idle");
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [previousTitles, setPreviousTitles] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
-function RecipeCard({
-  recipe,
-  onClick,
-}: {
-  recipe: Recipe;
-  onClick: (r: Recipe) => void;
-}) {
-  return (
-    <button
-      onClick={() => onClick(recipe)}
-      className="group text-left w-full rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-green-200 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-green-600 focus-visible:outline-offset-2"
-    >
-      {/* Gradient header */}
-      <div className={`relative h-24 bg-gradient-to-br ${recipe.accent} flex items-center justify-between px-5`}>
-        <span className="text-5xl drop-shadow-sm">{recipe.emoji}</span>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm text-xs font-semibold text-gray-700">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="6" cy="6" r="5" stroke="#2C7A4B" strokeWidth="1.3" />
-            <path d="M6 3.5v2.5l2 1" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" />
-          </svg>
-          {recipe.cookTimeMinutes} min
-        </div>
-        {/* Green left border on hover */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-600 rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      </div>
+  useEffect(() => {
+    fetch("/api/saved-recipes")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.recipes) {
+          setSavedIds(new Set(data.recipes.map((r: { recipe_id: string }) => r.recipe_id)));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
-      {/* Body */}
-      <div className="p-4">
-        <div className="flex flex-wrap gap-1.5 mb-2.5">
-          {recipe.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-green-50 text-green-700"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+  async function handleToggleSave(recipeId: string) {
+    if (savedIds.has(recipeId)) {
+      const res = await fetch("/api/saved-recipes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok) {
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(recipeId);
+          return next;
+        });
+      }
+    } else {
+      const res = await fetch("/api/saved-recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipeId }),
+      });
+      if (res.ok || res.status === 409) {
+        setSavedIds((prev) => new Set([...prev, recipeId]));
+      }
+    }
+  }
 
-        <h3 className="font-semibold text-base text-gray-800 leading-snug mb-2">
-          {recipe.title}
-        </h3>
-        <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-2">
-          {recipe.description}
-        </p>
+  // Preferences modal state
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [loadingPrefs, setLoadingPrefs] = useState(false);
+  const [modalGoal, setModalGoal] = useState("");
+  const [modalDiet, setModalDiet] = useState<string[]>([]);
+  const [modalCuisine, setModalCuisine] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-        {/* Macros */}
-        <div className="grid grid-cols-4 gap-1.5">
-          <MacroChip label="Cal" value={recipe.nutrition.calories} unit="kcal" bg="bg-green-50" />
-          <MacroChip label="Protein" value={recipe.nutrition.protein} unit="g" bg="bg-blue-50" />
-          <MacroChip label="Carbs" value={recipe.nutrition.carbs} unit="g" bg="bg-amber-50" />
-          <MacroChip label="Fat" value={recipe.nutrition.fat} unit="g" bg="bg-rose-50" />
-        </div>
-
-        {/* View cue */}
-        <div className="flex items-center justify-end gap-1 mt-3 text-xs font-medium text-green-700 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          View full recipe
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2.5 6h7M6.5 3l3 3-3 3" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ─── Recipe detail modal ──────────────────────────────────────────────────────
-
-function RecipeDetail({
-  recipe,
-  onClose,
-}: {
-  recipe: Recipe;
-  onClose: () => void;
-}) {
-  const [cookStatus, setCookStatus] = useState<"idle" | "loading" | "done" | "duplicate" | "error">("idle");
-
-  async function handleMarkAsCooked() {
-    setCookStatus("loading");
+  async function openPrefs() {
+    setPrefsOpen(true);
+    setSaveSuccess(false);
+    setLoadingPrefs(true);
     try {
-      const res = await fetch("/api/meal-logs", {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("health_goal, dietary_restrictions, cuisine_preferences")
+        .eq("user_id", user.id)
+        .single();
+      if (data) {
+        const goalMap: Record<string, string> = {
+          "weight-loss": "Weight Loss",
+          "muscle-gain": "Muscle Gain",
+          "general-wellness": "General Wellness",
+          "maintenance": "Maintain Weight",
+          "healthy-eating": "Healthy Eating",
+        };
+        setModalGoal(goalMap[data.health_goal] ?? data.health_goal ?? "");
+
+        const dietMap: Record<string, string> = {
+          "vegetarian": "Vegetarian",
+          "vegan": "Vegan",
+          "gluten-free": "Gluten-Free",
+          "dairy-free": "Dairy-Free",
+          "nut-free": "Nut-Free",
+          "halal": "Halal",
+          "kosher": "Kosher",
+        };
+        const normalizedDiet = (data.dietary_restrictions ?? [])
+          .map((d: string) => dietMap[d.toLowerCase()] ?? d);
+        setModalDiet(normalizedDiet);
+
+        const normalizedCuisine = (data.cuisine_preferences ?? [])
+          .map((c: string) => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase());
+        setModalCuisine(normalizedCuisine);
+      }
+    } finally {
+      setLoadingPrefs(false);
+    }
+  }
+
+  function toggleDiet(val: string) {
+    setModalDiet(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
+  }
+
+  function toggleCuisine(val: string) {
+    setModalCuisine(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
+  }
+
+  async function savePrefs() {
+    setSaving(true);
+    try {
+      await fetch("/api/auth/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recipe_id: recipe.id,
-          calories: recipe.nutrition.calories,
-          protein_g: recipe.nutrition.protein,
-          carbs_g: recipe.nutrition.carbs,
-          fat_g: recipe.nutrition.fat,
+          health_goal: modalGoal,
+          dietary_restrictions: modalDiet,
+          cuisine_preferences: modalCuisine,
         }),
       });
-
-      if (res.status === 409) {
-        setCookStatus("duplicate");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Failed to log meal");
-
-      setCookStatus("done");
-    } catch {
-      setCookStatus("error");
+      setSaveSuccess(true);
+      setTimeout(() => setPrefsOpen(false), 800);
+    } finally {
+      setSaving(false);
     }
   }
 
+  async function handleGenerate() {
+    setPageState("loading");
+    setErrorMsg(null);
+    try {
+      const response = await fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ previousTitles }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMsg(data.error ?? "Failed to generate recipes");
+        setPageState("error");
+        return;
+      }
+      setRecipes(data.recipes);
+      setPreviousTitles(data.recipes.map((r: Recipe) => r.title));
+      setPageState("done");
+    } catch {
+      setErrorMsg("Network error — please try again");
+      setPageState("error");
+    }
+  }
+
+  function handleGenerateAgain() {
+    setRecipes([]);
+    handleGenerate();
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg rounded-2xl overflow-hidden bg-white shadow-2xl"
-        style={{ maxHeight: "88vh", overflowY: "auto" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal header */}
-        <div className={`relative px-6 pt-6 pb-5 bg-gradient-to-br ${recipe.accent}`}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 64px)" }}>
+
+      {/* ── Header card ── */}
+      <div className="card header-card">
+        <p className="header-label">AI RECIPE GENERATOR</p>
+        <h1 style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 800,
+          fontSize: "1.75rem",
+          color: "var(--color-text)",
+          lineHeight: 1.2,
+          margin: "0 0 8px",
+          letterSpacing: "-0.03em",
+        }}>
+          What would you like to cook?
+        </h1>
+        <p className="header-subtitle">
+          Recipes are personalised to your health goal and preferences.
+        </p>
+      </div>
+
+      {/* ── Action row ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "16px" }}>
+        <button
+          type="button"
+          onClick={openPrefs}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "#3D6B4F",
+            border: "none",
+            borderRadius: "10px",
+            padding: "10px 20px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "white",
+            cursor: "pointer",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+          }}
+        >
+          Edit Preferences
+        </button>
+        {pageState === "done" && (
           <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/70 flex items-center justify-center text-sm font-medium text-gray-600 hover:bg-white transition-colors"
-          >
-            ✕
-          </button>
-          <span className="text-4xl block mb-3">{recipe.emoji}</span>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {recipe.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-white/70 text-green-700"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 leading-snug mb-1">
-            {recipe.title}
-          </h2>
-          <p className="text-xs text-gray-600 leading-relaxed">{recipe.description}</p>
-          <div className="flex items-center gap-1.5 mt-3 text-xs font-medium text-green-700">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <circle cx="6.5" cy="6.5" r="5.5" stroke="#2C7A4B" strokeWidth="1.3" />
-              <path d="M6.5 4v2.5l1.5 1" stroke="#2C7A4B" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
-            {recipe.cookTimeMinutes} minutes
-          </div>
-        </div>
-
-        {/* Nutrition */}
-        <div className="grid grid-cols-4 gap-2 px-6 py-4 border-b border-gray-100">
-          <MacroChip label="Calories" value={recipe.nutrition.calories} unit="kcal" bg="bg-green-50" />
-          <MacroChip label="Protein" value={recipe.nutrition.protein} unit="g" bg="bg-blue-50" />
-          <MacroChip label="Carbs" value={recipe.nutrition.carbs} unit="g" bg="bg-amber-50" />
-          <MacroChip label="Fat" value={recipe.nutrition.fat} unit="g" bg="bg-rose-50" />
-        </div>
-
-        {/* Ingredients */}
-        <div className="px-6 pt-5 pb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-3">
-            Ingredients
-          </h3>
-          <ul className="space-y-2">
-            {recipe.ingredients.map((ing, i) => (
-              <li
-                key={i}
-                className={`flex items-center gap-3 text-sm px-3 py-1.5 rounded-lg ${i % 2 === 0 ? "bg-gray-50" : ""}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-green-500 opacity-60 shrink-0" />
-                <span className="flex-1 font-medium text-gray-700">{ing.name}</span>
-                <span className="text-xs font-semibold text-gray-600">
-                  {ing.qty} {ing.unit}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Steps */}
-        <div className="px-6 pb-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-3">
-            Method
-          </h3>
-          <ol className="space-y-4">
-            {recipe.steps.map((s) => (
-              <li key={s.step} className="flex gap-4">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center shadow-sm mt-0.5">
-                  {s.step}
-                </span>
-                <p className="text-sm text-gray-600 leading-relaxed">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        {/* ── Mark as Cooked ── */}
-        <div className="px-6 pb-7 pt-2">
-
-          {/* Status messages */}
-          {cookStatus === "done" && (
-            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3">
-              <span className="text-base">✅</span>
-              <span className="font-medium">Logged! This recipe has been added to today&apos;s meal log.</span>
-            </div>
-          )}
-          {cookStatus === "duplicate" && (
-            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3">
-              <span className="text-base">⚠️</span>
-              <span className="font-medium">You&apos;ve already logged this recipe today.</span>
-            </div>
-          )}
-          {cookStatus === "error" && (
-            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
-              <span className="text-base">❌</span>
-              <span className="font-medium">Something went wrong. Please try again.</span>
-            </div>
-          )}
-
-          {/* Button */}
-          <button
-            onClick={handleMarkAsCooked}
-            disabled={cookStatus === "loading" || cookStatus === "done" || cookStatus === "duplicate"}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+            type="button"
+            onClick={handleGenerateAgain}
             style={{
-              background:
-                cookStatus === "done" || cookStatus === "duplicate"
-                  ? "#9ca3af"
-                  : "linear-gradient(135deg, #2C7A4B 0%, #3fac6a 100%)",
-              boxShadow:
-                cookStatus === "done" || cookStatus === "duplicate"
-                  ? "none"
-                  : "0 4px 14px rgba(44,122,75,0.35)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "var(--color-green-dark)",
+              border: "none",
+              borderRadius: "10px",
+              padding: "10px 20px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "white",
+              cursor: "pointer",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
             }}
           >
-            {cookStatus === "loading" && (
-              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
-              </svg>
-            )}
-            {cookStatus === "idle" || cookStatus === "error" ? "🍳 Mark as Cooked" : null}
-            {cookStatus === "loading" ? "Saving…" : null}
-            {cookStatus === "done" ? "✓ Logged Today" : null}
-            {cookStatus === "duplicate" ? "✓ Already Logged Today" : null}
+            Generate Again
           </button>
-        </div>
+        )}
+        {pageState === "error" && (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "var(--color-green)",
+              border: "none",
+              borderRadius: "10px",
+              padding: "10px 20px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "white",
+              cursor: "pointer",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+            }}
+          >
+            Generate Recipes
+          </button>
+        )}
+        {pageState === "done" && recipes.length > 0 && (
+          <p className="result-count">✅ {recipes.length} recipes generated for you</p>
+        )}
       </div>
+
+      {/* ── Content area ── */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        alignItems: pageState === "done" ? "flex-start" : "center",
+        justifyContent: pageState === "done" ? "flex-start" : "center",
+      }}>
+        {pageState === "idle"    && <EmptyState onGenerate={handleGenerate} />}
+        {pageState === "loading" && <LoadingState />}
+        {pageState === "error"   && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
+        {pageState === "done"    && <RecipeGrid recipes={recipes} savedIds={savedIds} onToggleSave={handleToggleSave} />}
+      </div>
+
+      {/* ── Preferences Modal ── */}
+      {prefsOpen && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setPrefsOpen(false); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+        >
+          <div style={{
+            background: "var(--color-surface)",
+            borderRadius: "20px",
+            padding: "32px",
+            width: "100%",
+            maxWidth: "520px",
+            maxHeight: "85vh",
+            overflowY: "auto",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+          }}>
+            {/* Modal header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <h2 style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 700,
+                fontSize: "1.25rem",
+                color: "var(--color-text)",
+                margin: 0,
+                letterSpacing: "-0.02em",
+              }}>
+                Edit Preferences
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPrefsOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.4rem",
+                  cursor: "pointer",
+                  color: "var(--color-text-3)",
+                  lineHeight: 1,
+                  padding: "4px 8px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingPrefs ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
+                Loading…
+              </div>
+            ) : (
+              <>
+                {/* Health Goal */}
+                <div style={{ marginBottom: "24px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Health Goal</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {HEALTH_GOALS.map(goal => (
+                      <button key={goal} type="button" onClick={() => setModalGoal(goal)} style={chipStyle(modalGoal === goal)}>
+                        {goal}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dietary Restrictions */}
+                <div style={{ marginBottom: "24px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Dietary Restrictions</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {DIETARY_OPTIONS.map(opt => (
+                      <button key={opt} type="button" onClick={() => toggleDiet(opt)} style={chipStyle(modalDiet.includes(opt))}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cuisine Preferences */}
+                <div style={{ marginBottom: "28px" }}>
+                  <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {CUISINE_OPTIONS.map(opt => (
+                      <button key={opt} type="button" onClick={() => toggleCuisine(opt)} style={chipStyle(modalCuisine.includes(opt))}>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Save */}
+                <button
+                  type="button"
+                  onClick={savePrefs}
+                  disabled={saving || !modalGoal}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "12px",
+                    border: "none",
+                    background: saveSuccess ? "var(--color-green-dark)" : "var(--color-green)",
+                    color: "white",
+                    fontSize: "0.95rem",
+                    fontWeight: 700,
+                    cursor: saving || !modalGoal ? "not-allowed" : "pointer",
+                    opacity: saving || !modalGoal ? 0.7 : 1,
+                    fontFamily: "var(--font-body), system-ui, sans-serif",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {saveSuccess ? "✓ Saved!" : saving ? "Saving…" : "Save Preferences"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .header-card {
+          padding: 28px 32px !important;
+          margin-bottom: 0;
+        }
+        .header-card:hover {
+          transform: none;
+        }
+        .header-label {
+          font-size: 0.7rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          color: var(--color-green);
+          text-transform: uppercase;
+          margin: 0 0 6px;
+        }
+        .header-subtitle {
+          color: var(--color-text-3);
+          font-size: 0.875rem;
+          margin: 0;
+          line-height: 1.5;
+        }
+        .result-count {
+          font-size: 0.85rem;
+          color: var(--color-text-3);
+          margin: 0;
+        }
+      `}</style>
     </div>
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ── Recipe grid ───────────────────────────────────────────────────────────────
 
-export default function GeneratePage() {
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selected, setSelected] = useState<Recipe | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  async function handleGenerate() {
-    setStatus("loading");
-    setErrorMsg("");
-    try {
-      // ── Swap for real API once /api/recipes is ready ──────────────────────
-      // const res = await fetch("/api/recipes", { method: "POST" });
-      // if (!res.ok) throw new Error("Failed to generate recipes");
-      // const data = await res.json();
-      // setRecipes(data.recipes);
-      // ─────────────────────────────────────────────────────────────────────
-      await new Promise((res) => setTimeout(res, 2500));
-      setRecipes(MOCK_RECIPES);
-      setStatus("done");
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-      setStatus("error");
-    }
-  }
+function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; savedIds: Set<string>; onToggleSave: (id: string) => void }) {
+  const router = useRouter();
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="grid-wrapper">
+      <div className="recipe-grid">
+        {recipes.map((recipe, i) => (
+          <RecipeCard
+            key={recipe.id}
+            recipe={recipe}
+            index={i}
+            onClick={() => router.push(`/generate/${recipe.id}`)}
+            isSaved={savedIds.has(recipe.id)}
+            onToggleSave={() => onToggleSave(recipe.id)}
+          />
+        ))}
+      </div>
 
-      {/* Header */}
-      <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-6 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-50 text-green-700">
-                AI Powered
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800 mt-1 leading-tight">
-                Generate Recipes
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {status === "done"
-                  ? `${recipes.length} recipes tailored to your profile — click any card for the full recipe.`
-                  : "Personalised to your health goal, diet & cuisine preferences"}
-              </p>
+      <style jsx>{`
+        .grid-wrapper {
+          width: 100%;
+          animation: fadeUp 0.35s ease both;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .recipe-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 1024px) {
+          .recipe-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+          .recipe-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        }
+        @media (max-width: 480px) {
+          .recipe-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Recipe card ───────────────────────────────────────────────────────────────
+
+function RecipeCard({
+  recipe,
+  index,
+  onClick,
+  isSaved,
+  onToggleSave,
+}: {
+  recipe: Recipe;
+  index: number;
+  onClick: () => void;
+  isSaved: boolean;
+  onToggleSave: () => void;
+}) {
+  const emoji   = getRecipeEmoji(recipe.title);
+  const cuisine = getRecipeCuisine(recipe);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        className="recipe-card"
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+        style={{ animationDelay: `${index * 0.08}s` }}
+      >
+        {/* Top section */}
+        <div className="card-top">
+          <span className="cuisine-tag">{cuisine}</span>
+          <span className="card-emoji" aria-hidden="true">{emoji}</span>
+        </div>
+
+        {/* Bottom section */}
+        <div className="card-bottom">
+          <h3 className="card-title">{recipe.title}</h3>
+          <p className="card-description">{recipe.description}</p>
+
+          {recipe.ingredients && recipe.ingredients.length > 0 && (
+            <div className="ingredient-pills">
+              {recipe.ingredients.slice(0, 2).map((ing, i) => (
+                <span key={i} className="ingredient-pill">
+                  {typeof ing === "string" ? ing : ing.name}
+                </span>
+              ))}
             </div>
+          )}
 
-            {status !== "idle" && (
-              <button
-                onClick={handleGenerate}
-                disabled={status === "loading"}
-                className="flex items-center gap-2 px-6 py-3 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-md hover:shadow-green-200 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                <span>✦</span>
-                {status === "loading" ? "Generating…" : "Generate Again"}
-              </button>
-            )}
+          <div className="card-meta">
+            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+            <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
           </div>
+
+          <div className="card-view">View recipe →</div>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8">
-
-        {status === "idle" && <EmptyState onGenerate={handleGenerate} />}
-        {status === "loading" && <LoadingSpinner />}
-
-        {status === "error" && (
-          <div className="flex flex-col items-center justify-center flex-1 py-24 text-center">
-            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-5 shadow-sm">
-              ⚠️
-            </div>
-            <p className="font-semibold text-gray-800 mb-1">Something went wrong</p>
-            <p className="text-sm text-gray-600 mb-6 max-w-xs">{errorMsg}</p>
-            <button
-              onClick={handleGenerate}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-green-700 to-green-500 shadow-md hover:shadow-green-200 hover:scale-105 active:scale-95 transition-all duration-200"
-            >
-              Try Again
-            </button>
-          </div>
+      {/* Bookmark button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+        aria-label={isSaved ? "Unsave recipe" : "Save recipe"}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          background: isSaved ? "var(--color-green-light)" : "white",
+          border: `1.5px solid ${isSaved ? "var(--color-green)" : "var(--color-border)"}`,
+          borderRadius: 8,
+          padding: 6,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1,
+        }}
+      >
+        {isSaved ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-green)" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
         )}
+      </button>
 
-        {status === "done" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {recipes.map((recipe, i) => (
-              <div
-                key={recipe.id}
-                className="animate-[fadeUp_0.45s_ease_both]"
-                style={{ animationDelay: `${i * 0.13}s` }}
-              >
-                <RecipeCard recipe={recipe} onClick={setSelected} />
-              </div>
-            ))}
-          </div>
-        )}
+      <style jsx>{`
+        .recipe-card {
+          background: var(--color-surface);
+          border-radius: 16px;
+          border: 1px solid var(--color-border);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+          padding: 0;
+          overflow: hidden;
+          cursor: pointer;
+          text-align: left;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          animation: cardReveal 0.4s ease both;
+          transition: all 0.2s ease;
+        }
+        @keyframes cardReveal {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .recipe-card:hover {
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          transform: translateY(-2px);
+        }
+        .recipe-card:active {
+          transform: translateY(-1px);
+        }
+
+        /* Top section */
+        .card-top {
+          background: var(--color-green-light);
+          padding: 14px 20px;
+          height: 100px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          flex-shrink: 0;
+        }
+        .cuisine-tag {
+          align-self: flex-start;
+          background: white;
+          color: var(--color-green-dark);
+          border-radius: 20px;
+          padding: 4px 10px;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
+        .card-emoji {
+          font-size: 2rem;
+          line-height: 1;
+        }
+
+        @media (max-width: 700px) {
+          .card-top {
+            height: 120px;
+          }
+          .card-emoji {
+            font-size: 2.5rem;
+          }
+        }
+        @media (max-width: 480px) {
+          .card-top {
+            height: 150px;
+          }
+          .card-emoji {
+            font-size: 3.25rem;
+          }
+        }
+
+        /* Bottom section */
+        .card-bottom {
+          padding: 16px 20px;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+        .card-title {
+          font-family: var(--font-display), system-ui, sans-serif;
+          font-weight: 700;
+          font-size: 0.9rem;
+          color: var(--color-text);
+          line-height: 1.3;
+          margin: 0 0 6px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .card-description {
+          font-size: 0.78rem;
+          color: var(--color-text-3);
+          line-height: 1.5;
+          margin: 0 0 10px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .ingredient-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 12px;
+        }
+        .ingredient-pill {
+          background: var(--color-surface-2);
+          color: var(--color-text-2);
+          border-radius: 6px;
+          padding: 2px 7px;
+          font-size: 0.7rem;
+        }
+        .card-meta {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: auto;
+        }
+        .meta-time {
+          font-size: 0.78rem;
+          color: var(--color-text-3);
+        }
+        .meta-calories {
+          font-weight: 600;
+          font-size: 0.78rem;
+          color: var(--color-green-dark);
+        }
+        .card-view {
+          display: block;
+          margin-top: 10px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--color-green);
+          border-top: 1px solid var(--color-border);
+          padding-top: 10px;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState({ onGenerate }: { onGenerate: () => void }) {
+  return (
+    <div className="empty-wrapper">
+      <div className="card empty-card">
+        <div className="empty-emoji" aria-hidden="true">🍳</div>
+        <h2 className="empty-title">What&apos;s cooking today?</h2>
+        <p className="empty-body">
+          Generate personalised recipes based on your health goals and dietary preferences.
+        </p>
+        <button
+          className="btn-primary"
+          onClick={onGenerate}
+          type="button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px 28px",
+            fontSize: "0.95rem",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+          }}
+        >
+          Generate Recipes
+        </button>
       </div>
 
-      {selected && (
-        <RecipeDetail recipe={selected} onClose={() => setSelected(null)} />
-      )}
+      <style jsx>{`
+        .empty-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          animation: fadeUp 0.4s ease both;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .empty-card {
+          padding: 40px !important;
+          text-align: center;
+          max-width: 560px;
+          width: 100%;
+        }
+        .empty-card:hover {
+          transform: none;
+        }
+        .empty-emoji {
+          font-size: 4rem;
+          margin-bottom: 16px;
+          line-height: 1;
+        }
+        .empty-title {
+          font-family: var(--font-display), system-ui, sans-serif;
+          font-weight: 700;
+          font-size: 1.5rem;
+          color: var(--color-text);
+          margin: 0;
+          letter-spacing: -0.02em;
+        }
+        .empty-body {
+          color: var(--color-text-3);
+          font-size: 0.95rem;
+          max-width: 400px;
+          margin: 8px auto 24px;
+          line-height: 1.6;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Error state ───────────────────────────────────────────────────────────────
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="error-wrapper">
+      <div className="card error-card">
+        <div style={{ fontSize: "2.5rem", marginBottom: "12px", lineHeight: 1 }} aria-hidden="true">⚠️</div>
+        <h2 style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: "1.25rem",
+          color: "var(--color-text)",
+          margin: "0 0 8px",
+        }}>
+          Could not generate recipes
+        </h2>
+        <p style={{
+          color: "var(--color-text-3)",
+          fontSize: "0.875rem",
+          margin: "0 0 20px",
+          lineHeight: 1.6,
+        }}>
+          {message}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "var(--color-green)",
+            border: "none",
+            borderRadius: "10px",
+            padding: "10px 20px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "white",
+            cursor: "pointer",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+            margin: "0 auto",
+          }}
+        >
+          Try again
+        </button>
+      </div>
+
+      <style jsx>{`
+        .error-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          animation: fadeUp 0.4s ease both;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .error-card {
+          padding: 40px !important;
+          text-align: center;
+          max-width: 560px;
+          width: 100%;
+        }
+        .error-card:hover {
+          transform: none;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Loading state ─────────────────────────────────────────────────────────────
+
+function LoadingState() {
+  const steps = [
+    "Reading your nutrition profile…",
+    "Crafting personalised recipes…",
+    "Calculating nutrition facts…",
+    "Almost ready…",
+  ];
+
+  return (
+    <div className="loading-state">
+      <div className="loading-ring" aria-label="Generating recipes" role="status">
+        <div className="ring ring--outer" />
+        <div className="ring ring--inner" />
+        <div className="loading-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" fill="#eaf4ee" />
+            <path d="M9 12c0-1.7 1.3-3 3-3s3 1.3 3 3" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M12 9v6" stroke="#2C7A4B" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </div>
+      </div>
+      <h2 className="loading-title">Cooking up your recipes…</h2>
+      <p className="loading-sub">Claude is thinking. This usually takes a few seconds.</p>
+      <div className="loading-steps" role="list">
+        {steps.map((step, i) => (
+          <div key={step} className="loading-step" role="listitem" style={{ animationDelay: `${i * 0.6}s` }}>
+            <span className="step-dot" style={{ animationDelay: `${i * 0.6}s` }} aria-hidden="true" />
+            <span className="step-text">{step}</span>
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 40px 24px;
+          animation: fadeUp 0.3s ease both;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .loading-ring {
+          position: relative;
+          width: 80px;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 24px;
+        }
+        .ring {
+          position: absolute;
+          border-radius: 50%;
+          border: 3px solid transparent;
+        }
+        .ring--outer {
+          width: 80px;
+          height: 80px;
+          border-top-color: #2C7A4B;
+          border-right-color: #2C7A4B;
+          animation: spin 1.2s linear infinite;
+        }
+        .ring--inner {
+          width: 58px;
+          height: 58px;
+          border-bottom-color: #7ec99a;
+          border-left-color: #7ec99a;
+          animation: spin 0.8s linear infinite reverse;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-icon { position: relative; z-index: 1; }
+        .loading-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #1a3a28;
+          margin: 0 0 6px;
+          letter-spacing: -0.3px;
+        }
+        .loading-sub {
+          font-size: 13px;
+          color: #7a9a88;
+          margin: 0 0 28px;
+        }
+        .loading-steps {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: flex-start;
+        }
+        .loading-step {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          opacity: 0;
+          animation: stepReveal 0.4s ease forwards;
+        }
+        @keyframes stepReveal {
+          from { opacity: 0; transform: translateX(-8px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .step-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #2C7A4B;
+          flex-shrink: 0;
+          animation: dotPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes dotPulse {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50%       { opacity: 1;   transform: scale(1.3); }
+        }
+        .step-text {
+          font-size: 13px;
+          color: #4a7a5c;
+          font-family: 'DM Sans', 'Nunito', sans-serif;
+          font-weight: 500;
+        }
+      `}</style>
     </div>
   );
 }
