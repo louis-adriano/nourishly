@@ -506,11 +506,7 @@ function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; sa
 
   return (
     <div className="grid-wrapper">
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "16px",
-      }}>
+      <div className="recipe-grid">
         {recipes.map((recipe, i) => (
           <RecipeCard
             key={recipe.id}
@@ -531,6 +527,20 @@ function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; sa
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        .recipe-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 1024px) {
+          .recipe-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+          .recipe-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        }
+        @media (max-width: 480px) {
+          .recipe-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>
@@ -567,10 +577,8 @@ function RecipeCard({
       >
         {/* Top section */}
         <div className="card-top">
-          <div className="card-top-row">
-            <span className="cuisine-tag">{cuisine}</span>
-            <span className="card-emoji" aria-hidden="true">{emoji}</span>
-          </div>
+          <span className="cuisine-tag">{cuisine}</span>
+          <span className="card-emoji" aria-hidden="true">{emoji}</span>
         </div>
 
         {/* Bottom section */}
@@ -659,19 +667,16 @@ function RecipeCard({
         /* Top section */
         .card-top {
           background: var(--color-green-light);
-          padding: 20px 20px 14px;
+          padding: 14px 20px;
           height: 100px;
           display: flex;
           flex-direction: column;
+          align-items: center;
           justify-content: space-between;
           flex-shrink: 0;
         }
-        .card-top-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
         .cuisine-tag {
+          align-self: flex-start;
           background: white;
           color: var(--color-green-dark);
           border-radius: 20px;
@@ -682,6 +687,23 @@ function RecipeCard({
         .card-emoji {
           font-size: 2rem;
           line-height: 1;
+        }
+
+        @media (max-width: 700px) {
+          .card-top {
+            height: 120px;
+          }
+          .card-emoji {
+            font-size: 2.5rem;
+          }
+        }
+        @media (max-width: 480px) {
+          .card-top {
+            height: 150px;
+          }
+          .card-emoji {
+            font-size: 3.25rem;
+          }
         }
 
         /* Bottom section */

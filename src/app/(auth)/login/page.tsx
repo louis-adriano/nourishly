@@ -142,6 +142,10 @@ export default function LoginPage() {
         .submit-btn:active { transform: scale(0.98); }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         @media (max-width: 768px) { .panel-left { display: none; } }
+        @media (max-width: 480px) {
+          .panel-right { padding: 32px 20px; }
+          .form-title { font-size: 22px; }
+        }
       `}</style>
     </div>
   )

@@ -357,6 +357,17 @@ export default function RecipeDetailPage() {
         @keyframes bounce { 0%, 100% { transform: translateY(0); opacity: 0.4; } 50% { transform: translateY(-4px); opacity: 1; } }
         .no-hover-transform:hover { transform: none !important; box-shadow: none !important; }
         .sub-input:focus { border-color: var(--color-green) !important; outline: none; }
+        .recipe-detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 360px;
+          gap: 16px;
+          margin-bottom: 0;
+        }
+        @media (max-width: 800px) {
+          .recipe-detail-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
 
       {/* ── Back link ── */}
@@ -417,7 +428,7 @@ export default function RecipeDetailPage() {
       </div>
 
       {/* ── Two-column layout: ingredients (left) + nutrition/cook (right) ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, marginBottom: 0 }}>
+      <div className="recipe-detail-grid">
 
         {/* ── LEFT: Ingredients ── */}
         <section>
