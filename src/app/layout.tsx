@@ -17,6 +17,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Nourishly",
   description: "AI-powered personalised nutrition",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Nourishly",
+  },
 };
 
 export default function RootLayout({
@@ -26,6 +32,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${inter.variable}`}>
+      <head>
+        <meta name="theme-color" content="#3D6B4F" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Nourishly" />
+      </head>
       <body className="antialiased">
         {children}
       </body>
