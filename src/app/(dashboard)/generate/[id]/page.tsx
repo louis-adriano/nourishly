@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { getLocalDateString } from "@/lib/date";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,10 @@ export default function RecipeDetailPage() {
   const [cookState, setCookState] = useState<"idle" | "loading" | "logged">("idle");
   const [cookError, setCookError] = useState<string | null>(null);
 
+  // ── Add to Grocery List state ───────────────────────────────────────────────
+  const [groceryState, setGroceryState] = useState<"idle" | "loading" | "added">("idle");
+  const [groceryError, setGroceryError] = useState<string | null>(null);
+
   // ── Fetch recipe ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
@@ -145,7 +150,7 @@ export default function RecipeDetailPage() {
   // ── Check if already logged today on mount ─────────────────────────────────
   useEffect(() => {
     if (!recipe) return;
-    fetch("/api/meal-logs")
+    fetch(`/api/meal-logs?date=${getLocalDateString()}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.logs?.some((log: { recipe_id: string }) => log.recipe_id === recipe.id)) {
@@ -290,6 +295,7 @@ export default function RecipeDetailPage() {
           protein_g: nutrition.protein_g,
           carbs_g: nutrition.carbs_g,
           fat_g: nutrition.fat_g,
+          logged_date: getLocalDateString(),
         }),
       });
       if (res.status === 201 || res.status === 409) {
@@ -302,6 +308,35 @@ export default function RecipeDetailPage() {
     } catch {
       setCookError("Network error — please try again.");
       setCookState("idle");
+    }
+  }
+
+  // ── Add to Grocery List ─────────────────────────────────────────────────────
+  async function handleAddToGrocery() {
+    if (!recipe || ingredients.length === 0) return;
+    setGroceryState("loading");
+    setGroceryError(null);
+    try {
+      const res = await fetch("/api/grocery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe_id: recipe.id,
+          ingredients: ingredients.map((ing) => ({
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Something went wrong.");
+      }
+      setGroceryState("added");
+    } catch (err) {
+      setGroceryError(err instanceof Error ? err.message : "Network error — please try again.");
+      setGroceryState("idle");
     }
   }
 
@@ -548,6 +583,42 @@ export default function RecipeDetailPage() {
           </button>
           {cookError && (
             <p style={{ fontSize: "0.8rem", color: "var(--color-danger)", margin: 0 }}>{cookError}</p>
+          )}
+
+          {/* Add to Grocery List button */}
+          <button
+            onClick={handleAddToGrocery}
+            disabled={groceryState !== "idle"}
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 10,
+              border: groceryState === "added" ? "1.5px solid var(--color-green)" : "1.5px solid var(--color-border)",
+              background: groceryState === "added" ? "var(--color-green-light)" : "white",
+              color: groceryState === "added" ? "var(--color-green-dark)" : "var(--color-text)",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              cursor: groceryState === "idle" ? "pointer" : "not-allowed",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              transition: "background 0.15s ease",
+            }}
+          >
+            {groceryState === "loading" && (
+              <span style={{ width: 14, height: 14, border: "2px solid rgba(0,0,0,0.15)", borderTopColor: "var(--color-green)", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            )}
+            {groceryState === "idle" && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            )}
+            {groceryState === "loading" ? "Adding…" : groceryState === "added" ? "✓ Added to Grocery List" : "Add to Grocery List"}
+          </button>
+          {groceryError && (
+            <p style={{ fontSize: "0.8rem", color: "var(--color-danger)", margin: 0 }}>{groceryError}</p>
           )}
         </div>
       </div>

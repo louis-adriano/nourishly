@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getLocalDateString } from "@/lib/date";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ export default function DashboardPage() {
 
     async function fetchNutrition() {
       try {
-        const res = await fetch("/api/nutrition");
+        const res = await fetch(`/api/nutrition?date=${getLocalDateString()}`);
         if (!res.ok) return;
         const data = await res.json();
         setTotals({
@@ -233,7 +234,18 @@ export default function DashboardPage() {
           Nutrition Summary
         </h2>
 
-        {!isLoading && (
+        {isLoading ? (
+          <div className="nutrition-grid">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="card nutrition-card skeleton-card" style={{ animationDelay: `${i * 0.08}s` }}>
+                <div className="skeleton-line" style={{ width: "60%", height: 12, marginBottom: 16 }} />
+                <div className="skeleton-line" style={{ width: "45%", height: 28, marginBottom: 8 }} />
+                <div className="skeleton-line" style={{ width: "35%", height: 12, marginBottom: 16 }} />
+                <div className="skeleton-line" style={{ width: "100%", height: 10 }} />
+              </div>
+            ))}
+          </div>
+        ) : (
           <div className="nutrition-grid">
             {NUTRITION_BARS.map((bar, i) => {
               const rawPct = bar.target > 0 ? (bar.logged / bar.target) * 100 : 0;
@@ -364,7 +376,16 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {!isLoading && (
+        {isLoading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {[0, 1].map((i) => (
+              <div key={i} className="card skeleton-card" style={{ padding: "16px 20px", animationDelay: `${i * 0.08}s` }}>
+                <div className="skeleton-line" style={{ width: "40%", height: 14, marginBottom: 8 }} />
+                <div className="skeleton-line" style={{ width: "25%", height: 11 }} />
+              </div>
+            ))}
+          </div>
+        ) : (
           meals.length === 0 ? (
             <div className="card" style={{
               minHeight: "140px",
@@ -433,6 +454,19 @@ export default function DashboardPage() {
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.55; }
+          50%      { opacity: 1; }
+        }
+        .skeleton-card:hover {
+          transform: none;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .skeleton-line {
+          background: var(--color-surface-2);
+          border-radius: 6px;
+          animation: pulse 1.4s ease-in-out infinite;
         }
         .nutrition-card {
           padding: 20px 24px;
