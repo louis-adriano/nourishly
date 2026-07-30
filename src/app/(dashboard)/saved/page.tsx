@@ -13,6 +13,7 @@ interface SavedRecipeItem {
   recipe: {
     recipe_id: string;
     title: string;
+    description: string;
     cook_time_mins: number;
     cuisine: string | null;
     nutrition_json: {
@@ -101,10 +102,47 @@ export default function SavedPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <div style={{ textAlign: "center", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
-          Loading saved recipes…
+      <div style={{
+        position: "fixed", inset: 0,
+        background: "var(--color-bg)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: 16, zIndex: 10,
+        paddingLeft: "220px",
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          alt="Nourishly"
+          width={56}
+          height={56}
+          style={{ borderRadius: 14 }}
+        />
+        <div style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 600,
+          fontSize: "1rem",
+          color: "var(--color-text-3)",
+        }}>
+          Loading…
         </div>
+        <div style={{
+          width: 40, height: 4, borderRadius: 2,
+          background: "var(--color-border)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 2,
+            background: "var(--color-green)",
+            animation: "loadBar 1s ease infinite",
+          }} />
+        </div>
+        <style>{`
+          @keyframes loadBar {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 100%; margin-left: 0; }
+            100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
       </div>
     );
   }
@@ -175,7 +213,12 @@ export default function SavedPage() {
       </div>
 
       {/* Grid */}
-      <div className="saved-grid">
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: "16px",
+        marginTop: "24px"
+      }}>
         {items.map((item) => {
           if (!item.recipe) return null;
           return (
@@ -253,41 +296,47 @@ function SavedRecipeCard({
   const ingredients = recipe.ingredients_json ?? [];
 
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        className="recipe-card"
-        onClick={onNavigate}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onNavigate(); }}
-      >
-        {/* Top */}
-        <div className="card-top">
-          <div className="card-top-row">
-            <span className="cuisine-tag">{cuisine}</span>
-            <span className="card-emoji" aria-hidden="true">{emoji}</span>
-          </div>
+    <div
+      className="recipe-card"
+      onClick={onNavigate}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onNavigate(); }}
+    >
+      {/* Top */}
+      <div className="card-top">
+        <span className="cuisine-tag">{cuisine}</span>
+        <span className="card-emoji" aria-hidden="true">{emoji}</span>
+      </div>
+
+      {/* Bottom */}
+      <div className="card-bottom">
+        <h3 className="card-title">{recipe.title}</h3>
+
+        <p style={{
+          fontSize: "0.78rem", color: "var(--color-text-3)",
+          lineHeight: 1.5, margin: "0 0 10px",
+          minHeight: "2.34rem",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>
+          {recipe.description}
+        </p>
+
+        <div className="ingredient-pills">
+          {ingredients.slice(0, 2).map((ing, i) => (
+            <span key={i} className="ingredient-pill">{ing.name}</span>
+          ))}
         </div>
 
-        {/* Bottom */}
-        <div className="card-bottom">
-          <h3 className="card-title">{recipe.title}</h3>
-
-          {ingredients.length > 0 && (
-            <div className="ingredient-pills">
-              {ingredients.slice(0, 2).map((ing, i) => (
-                <span key={i} className="ingredient-pill">{ing.name}</span>
-              ))}
-            </div>
-          )}
-
-          <div className="card-meta">
-            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
-            <span className="meta-calories">⚡ {calories} kcal</span>
-          </div>
-
-          <div className="card-view">View recipe →</div>
+        <div className="card-meta">
+          <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+          <span className="meta-calories">⚡ {calories} kcal</span>
         </div>
+
+        <div className="card-view">View recipe →</div>
       </div>
 
       {/* Bookmark — always filled since all shown recipes are saved */}
@@ -317,6 +366,7 @@ function SavedRecipeCard({
 
       <style jsx>{`
         .recipe-card {
+          position: relative;
           background: var(--color-surface);
           border-radius: 16px;
           border: 1px solid var(--color-border);
@@ -336,19 +386,15 @@ function SavedRecipeCard({
         }
         .card-top {
           background: var(--color-green-light);
-          padding: 20px 20px 14px;
+          padding: 14px 20px;
           height: 100px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
+          position: relative;
           flex-shrink: 0;
         }
-        .card-top-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
         .cuisine-tag {
+          position: absolute;
+          top: 14px;
+          left: 20px;
           background: white;
           color: var(--color-green-dark);
           border-radius: 20px;
@@ -357,6 +403,10 @@ function SavedRecipeCard({
           font-weight: 600;
         }
         .card-emoji {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
           font-size: 2rem;
           line-height: 1;
         }
@@ -373,6 +423,7 @@ function SavedRecipeCard({
           color: var(--color-text);
           line-height: 1.3;
           margin: 0 0 10px;
+          min-height: 2.6rem;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -380,8 +431,10 @@ function SavedRecipeCard({
         }
         .ingredient-pills {
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          overflow: hidden;
           gap: 4px;
+          min-height: 22px;
           margin-bottom: 12px;
         }
         .ingredient-pill {
@@ -390,6 +443,10 @@ function SavedRecipeCard({
           border-radius: 6px;
           padding: 2px 7px;
           font-size: 0.7rem;
+          max-width: 48%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .card-meta {
           display: flex;

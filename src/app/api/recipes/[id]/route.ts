@@ -15,7 +15,7 @@ export async function GET(
 
     const { data: row, error } = await supabase
       .from('recipes')
-      .select('recipe_id, title, cook_time_mins, ingredients_json, steps_json, nutrition_json')
+      .select('recipe_id, title, description, cook_time_mins, ingredients_json, steps_json, nutrition_json')
       .eq('recipe_id', params.id)
       .eq('user_id', user.id)
       .single()
@@ -27,7 +27,7 @@ export async function GET(
     const recipe = {
       id: row.recipe_id,
       title: row.title,
-      description: '',
+      description: row.description,
       cook_time_mins: row.cook_time_mins,
       ingredients: row.ingredients_json,
       steps: row.steps_json,

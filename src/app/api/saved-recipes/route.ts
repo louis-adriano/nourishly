@@ -23,6 +23,7 @@ export async function GET(request: Request) {
         recipes (
           recipe_id,
           title,
+          description,
           cook_time_mins,
           cuisine,
           nutrition_json,
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
       recipes: {
         recipe_id: string
         title: string
+        description: string
         cook_time_mins: number
         cuisine: string | null
         nutrition_json: unknown

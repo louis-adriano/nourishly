@@ -115,9 +115,12 @@ export default function RecipeDetailPage() {
   const [remaining, setRemaining] = useState(SUBSTITUTION_LIMIT);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Mark as Cooked state ────────────────────────────────────────────────────
+  // ── Log Meal state ──────────────────────────────────────────────────────────
   const [cookState, setCookState] = useState<"idle" | "loading" | "logged">("idle");
   const [cookError, setCookError] = useState<string | null>(null);
+
+  // ── Save Recipe state ───────────────────────────────────────────────────────
+  const [saveState, setSaveState] = useState<"idle" | "loading" | "saved">("idle");
 
   // ── Add to Grocery List state ───────────────────────────────────────────────
   const [groceryState, setGroceryState] = useState<"idle" | "loading" | "added">("idle");
@@ -155,6 +158,18 @@ export default function RecipeDetailPage() {
       .then((data) => {
         if (data?.logs?.some((log: { recipe_id: string }) => log.recipe_id === recipe.id)) {
           setCookState("logged");
+        }
+      });
+  }, [recipe]);
+
+  // ── Check if already saved on mount ─────────────────────────────────────────
+  useEffect(() => {
+    if (!recipe) return;
+    fetch(`/api/saved-recipes`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.recipes?.some((item: { recipe_id: string }) => item.recipe_id === recipe.id)) {
+          setSaveState("saved");
         }
       });
   }, [recipe]);
@@ -308,6 +323,26 @@ export default function RecipeDetailPage() {
     } catch {
       setCookError("Network error — please try again.");
       setCookState("idle");
+    }
+  }
+
+  // ── Save Recipe ──────────────────────────────────────────────────────────────
+  async function handleSave() {
+    if (!recipe) return;
+    setSaveState("loading");
+    try {
+      const res = await fetch("/api/saved-recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe_id: recipe.id }),
+      });
+      if (res.status === 201 || res.status === 409) {
+        setSaveState("saved");
+        return;
+      }
+      setSaveState("idle");
+    } catch {
+      setSaveState("idle");
     }
   }
 
@@ -520,7 +555,7 @@ export default function RecipeDetailPage() {
           ))}
         </section>
 
-        {/* ── RIGHT: Nutrition + Mark as Cooked ── */}
+        {/* ── RIGHT: Nutrition + Log Meal ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
           {/* Nutrition card */}
@@ -553,19 +588,19 @@ export default function RecipeDetailPage() {
             ))}
           </div>
 
-          {/* Mark as Cooked button */}
+          {/* Log Meal button */}
           <button
             onClick={handleMarkAsCooked}
             disabled={cookState !== "idle"}
             style={{
               width: "100%",
-              padding: 10,
+              padding: "13px",
               marginTop: 10,
               borderRadius: 10,
               border: cookState === "logged" ? "1.5px solid var(--color-green)" : "none",
               background: cookState === "logged" ? "var(--color-green-light)" : "var(--color-green)",
               color: cookState === "logged" ? "var(--color-green-dark)" : "white",
-              fontSize: "0.85rem",
+              fontSize: "0.9rem",
               fontWeight: 600,
               cursor: cookState === "idle" ? "pointer" : "not-allowed",
               fontFamily: "var(--font-body), system-ui, sans-serif",
@@ -579,11 +614,44 @@ export default function RecipeDetailPage() {
             {cookState === "loading" && (
               <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
             )}
-            {cookState === "loading" ? "Logging…" : cookState === "logged" ? "✓ Logged Today" : "Mark as Cooked"}
+            {cookState === "loading" ? "Logging…" : cookState === "logged" ? "Logged Today ✓" : "Log Meal"}
           </button>
           {cookError && (
             <p style={{ fontSize: "0.8rem", color: "var(--color-danger)", margin: 0 }}>{cookError}</p>
           )}
+
+          {/* Save Recipe button */}
+          <button
+            onClick={handleSave}
+            disabled={saveState !== "idle"}
+            style={{
+              width: "100%",
+              padding: "13px",
+              borderRadius: 10,
+              border: saveState === "saved" ? "1.5px solid var(--color-green)" : "1.5px solid var(--color-border)",
+              background: saveState === "saved" ? "var(--color-green-light)" : "white",
+              color: saveState === "saved" ? "var(--color-green-dark)" : "var(--color-text)",
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              cursor: saveState === "idle" ? "pointer" : "not-allowed",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              transition: "background 0.15s ease",
+            }}
+          >
+            {saveState === "loading" && (
+              <span style={{ width: 14, height: 14, border: "2px solid rgba(0,0,0,0.15)", borderTopColor: "var(--color-green)", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+            )}
+            {saveState === "idle" && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            )}
+            {saveState === "loading" ? "Saving…" : saveState === "saved" ? "Saved ✓" : "Save Recipe"}
+          </button>
 
           {/* Add to Grocery List button */}
           <button
@@ -591,12 +659,12 @@ export default function RecipeDetailPage() {
             disabled={groceryState !== "idle"}
             style={{
               width: "100%",
-              padding: 10,
+              padding: "13px",
               borderRadius: 10,
               border: groceryState === "added" ? "1.5px solid var(--color-green)" : "1.5px solid var(--color-border)",
               background: groceryState === "added" ? "var(--color-green-light)" : "white",
               color: groceryState === "added" ? "var(--color-green-dark)" : "var(--color-text)",
-              fontSize: "0.85rem",
+              fontSize: "0.9rem",
               fontWeight: 600,
               cursor: groceryState === "idle" ? "pointer" : "not-allowed",
               fontFamily: "var(--font-body), system-ui, sans-serif",

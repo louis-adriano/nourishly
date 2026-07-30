@@ -220,6 +220,7 @@ Do not include any text before or after the JSON array.`
     const rows = valid.map(recipe => ({
       user_id: user.id,
       title: recipe.title,
+      description: recipe.description,
       cuisine: recipe.cuisine ?? null,
       ingredients_json: recipe.ingredients,
       steps_json: recipe.steps,
@@ -231,7 +232,7 @@ Do not include any text before or after the JSON array.`
     const { data: saved, error: saveError } = await supabase
       .from('recipes')
       .insert(rows)
-      .select('recipe_id, title, cook_time_mins, ingredients_json, steps_json, nutrition_json')
+      .select('recipe_id, title, description, cook_time_mins, ingredients_json, steps_json, nutrition_json')
 
     console.log('[recipes] Supabase insert result — data:', saved, 'error:', {
       message: saveError?.message,
@@ -247,11 +248,11 @@ Do not include any text before or after the JSON array.`
       )
     }
 
-    // 8. Return saved recipes with their database ids, merging description from valid[]
+    // 8. Return saved recipes with their database ids
     const recipes = saved.map((row, i) => ({
       id: row.recipe_id,
       title: row.title,
-      description: valid[i].description,
+      description: row.description,
       cuisine: valid[i].cuisine ?? null,
       cook_time_mins: row.cook_time_mins,
       ingredients: row.ingredients_json,
