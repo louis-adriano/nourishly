@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getLocalDateString } from "@/lib/date";
 
@@ -22,9 +23,26 @@ interface NutritionTargets {
 
 interface MealLog {
   log_id: string;
+  recipe_id: string;
   recipe_title: string;
   logged_time: string;
   calories: number;
+}
+
+interface MealHistoryEntry {
+  log_id: string;
+  recipe_id: string;
+  title: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+interface DayHistory {
+  date: string;
+  meals: MealHistoryEntry[];
+  totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,6 +92,12 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<DayHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFetched, setHistoryFetched] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [historyFilter, setHistoryFilter] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -102,6 +126,7 @@ export default function DashboardPage() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (data.logs ?? []).map((log: any, i: number) => ({
             log_id: log.log_id ?? `${log.recipe_id}-${i}`,
+            recipe_id: log.recipe_id,
             recipe_title: log.recipe_title ?? "Logged Meal",
             logged_time: "Logged today",
             calories: log.calories,
@@ -134,6 +159,29 @@ export default function DashboardPage() {
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  async function fetchHistory() {
+    if (historyFetched) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch('/api/meal-history');
+      if (!res.ok) return;
+      const data = await res.json();
+      setHistoryData(data.days ?? []);
+      setHistoryFetched(true);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function toggleHistory() {
+    if (!historyOpen && !historyFetched) fetchHistory();
+    setHistoryOpen(prev => !prev);
+  }
+
+  const visibleDays = historyFilter
+    ? historyData.filter(d => d.date === historyFilter)
+    : historyData;
 
   const remaining = getCaloriesRemaining(totals.calories, targets.calories);
   const greeting = getGreeting();
@@ -421,14 +469,22 @@ export default function DashboardPage() {
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontWeight: 600,
-                      color: "var(--color-text)",
                       fontSize: "0.9rem",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}>
-                      {meal.recipe_title}
+                      <Link
+                        href={`/generate/${meal.recipe_id}`}
+                        style={{
+                          color: "var(--color-text)", textDecoration: "none",
+                          fontWeight: 600
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                        onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+                      >
+                        {meal.recipe_title ?? "Logged Meal"}
+                      </Link>
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
                       {meal.logged_time}
@@ -450,7 +506,245 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {/* ── Recent History ── */}
+      <section>
+        <div
+          onClick={toggleHistory}
+          style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "16px 0",
+            cursor: "pointer", marginTop: 8, userSelect: "none"
+          }}
+        >
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700,
+            fontSize: "1.25rem", color: "var(--color-text)" }}>
+            History
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ background: "var(--color-surface-2)", color: "var(--color-text-3)",
+              borderRadius: 20, padding: "2px 10px", fontSize: "0.75rem" }}>
+              Last 7 days
+            </span>
+            <input
+              type="date"
+              value={historyFilter}
+              max={new Date(Date.now() - 86400000).toISOString().split('T')[0]}
+              onChange={e => setHistoryFilter(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              style={{
+                fontSize: "0.75rem", padding: "3px 8px", borderRadius: 8,
+                border: "1px solid var(--color-border)", background: "white",
+                color: "var(--color-text-2)", cursor: "pointer", outline: "none"
+              }}
+            />
+            {historyFilter && (
+              <button
+                onClick={e => { e.stopPropagation(); setHistoryFilter(''); }}
+                style={{
+                  fontSize: "0.75rem", color: "var(--color-text-3)",
+                  background: "none", border: "none", cursor: "pointer",
+                  padding: "0 4px"
+                }}
+              >
+                ✕ Clear
+              </button>
+            )}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: historyOpen ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.2s ease" }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
+
+        {historyOpen && (
+          <div style={{ marginBottom: 24 }}>
+
+            {/* Loading skeleton */}
+            {historyLoading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[1,2,3,4].map(i => (
+                  <div key={i} style={{ height: 52, borderRadius: 10,
+                    background: "var(--color-surface-2)",
+                    animation: "pulse 1.5s ease infinite" }} />
+                ))}
+              </div>
+            )}
+
+            {/* History rows */}
+            {!historyLoading && visibleDays.length === 0 && (
+              <div style={{ color: "var(--color-text-3)", fontSize: "0.85rem",
+                padding: 20, textAlign: "center" }}>
+                No meals logged on this date.
+              </div>
+            )}
+
+            {!historyLoading && visibleDays.map(day => {
+              const isExpanded = expandedDays.has(day.date);
+              const pct = targets.calories > 0
+                ? Math.min((day.totals.calories / targets.calories) * 100, 100)
+                : 0;
+              const displayDate = new Date(day.date + 'T00:00:00')
+                .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+              return (
+                <div key={day.date} style={{
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: 8,
+                  background: "white"
+                }}>
+
+                  {/* Day summary row */}
+                  <div
+                    onClick={() => day.meals.length > 0 && setExpandedDays(prev => {
+                      const next = new Set(prev);
+                      next.has(day.date) ? next.delete(day.date) : next.add(day.date);
+                      return next;
+                    })}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "14px 16px", borderRadius: 0,
+                      background: "white",
+                      cursor: day.meals.length > 0 ? "pointer" : "default",
+                      transition: "background 0.15s ease",
+                      ...(day.meals.length === 0 ? { opacity: 0.6 } : {})
+                    }}
+                  >
+                    {/* Date */}
+                    <span style={{ fontWeight: 600, fontSize: "0.85rem",
+                      color: "var(--color-text)", minWidth: 90 }}>
+                      {displayDate}
+                    </span>
+
+                    {/* Mini progress bar */}
+                    <div style={{ flex: 1, height: 6, borderRadius: 3,
+                      background: "var(--color-surface-2)", overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", borderRadius: 3,
+                        width: `${pct}%`,
+                        background: pct >= 100 ? "var(--color-danger)"
+                          : pct >= 80 ? "#F59E0B"
+                          : "var(--color-green)",
+                        transition: "width 0.4s ease"
+                      }} />
+                    </div>
+
+                    {/* Calories + meal count */}
+                    {day.meals.length === 0 ? (
+                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-3)",
+                        minWidth: 80, textAlign: "right" }}>
+                        No meals
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-2)",
+                        minWidth: 80, textAlign: "right", fontWeight: 500 }}>
+                        {day.totals.calories} kcal · {day.meals.length} meal{day.meals.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+
+                    {/* Expand chevron */}
+                    {day.meals.length > 0 && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="var(--color-text-3)" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "transform 0.2s ease", flexShrink: 0 }}>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Expanded meal detail */}
+                  {isExpanded && (
+                    <div style={{ padding: "14px 16px",
+                      background: "white", borderRadius: 0,
+                      borderTop: "1px solid var(--color-border)" }}>
+
+                      {day.meals.map(meal => (
+                        <div key={meal.log_id} style={{
+                          background: "var(--color-surface-2)",
+                          borderRadius: 8,
+                          padding: "10px 14px",
+                          marginBottom: 8,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Link
+                              href={`/generate/${meal.recipe_id}`}
+                              style={{
+                                fontWeight: 600, fontSize: "0.875rem",
+                                color: "var(--color-text)", textDecoration: "none"
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                              onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+                            >
+                              {meal.title}
+                            </Link>
+                            <span style={{ fontSize: "0.875rem", color: "var(--color-green-dark)",
+                              fontWeight: 700 }}>
+                              {meal.calories} kcal
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 16 }}>
+                            {[
+                              { label: "Protein", value: meal.protein_g, unit: "g" },
+                              { label: "Carbs", value: meal.carbs_g, unit: "g" },
+                              { label: "Fat", value: meal.fat_g, unit: "g" },
+                            ].map(macro => (
+                              <span key={macro.label} style={{ fontSize: "0.75rem" }}>
+                                <span style={{ fontWeight: 600, color: "var(--color-text)" }}>
+                                  {macro.value}{macro.unit}
+                                </span>{" "}
+                                <span style={{ color: "var(--color-text-3)", fontSize: "0.7rem",
+                                  textTransform: "uppercase" }}>
+                                  {macro.label}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Day nutrition summary */}
+                      <div style={{ display: "flex", gap: 16, marginTop: 4,
+                        paddingTop: 10, borderTop: "1px solid var(--color-border)" }}>
+                        {[
+                          { label: "Protein", value: day.totals.protein_g, unit: "g" },
+                          { label: "Carbs", value: day.totals.carbs_g, unit: "g" },
+                          { label: "Fat", value: day.totals.fat_g, unit: "g" },
+                        ].map(macro => (
+                          <div key={macro.label} style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "0.85rem", fontWeight: 700,
+                              color: "var(--color-green-dark)" }}>
+                              {macro.value}{macro.unit}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "var(--color-text-3)",
+                              textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                              {macro.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
