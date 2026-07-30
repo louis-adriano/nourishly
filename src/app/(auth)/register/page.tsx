@@ -102,13 +102,10 @@ export default function RegisterPage() {
       <div className="panel-left" aria-hidden="true">
         <div className="panel-blob panel-blob--1" />
         <div className="panel-blob panel-blob--2" />
+        <img src="/icons/icon-512.png" alt="" className="panel-watermark" />
         <div className="panel-content">
           <div className="panel-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" fill="#fff" fillOpacity="0.15" />
-              <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-              <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <img src="/icons/icon-192.png" alt="" width={28} height={28} style={{ borderRadius: 8, display: "block" }} />
             <span className="panel-logo-text">Nourishly</span>
           </div>
           <div className="panel-tagline">
@@ -215,6 +212,7 @@ export default function RegisterPage() {
         .panel-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; }
         .panel-blob--1 { width: 380px; height: 380px; background: #1a5c38; top: -100px; right: -80px; }
         .panel-blob--2 { width: 300px; height: 300px; background: #4aaa72; bottom: -60px; left: -60px; }
+        .panel-watermark { position: absolute; width: 560px; height: 560px; right: -160px; bottom: -140px; opacity: 0.14; pointer-events: none; user-select: none; }
         .panel-content { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 44px; width: 100%; }
         .panel-logo { display: flex; align-items: center; gap: 10px; }
         .panel-logo-text { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }

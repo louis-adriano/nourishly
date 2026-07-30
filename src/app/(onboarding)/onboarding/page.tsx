@@ -298,11 +298,7 @@ export default function OnboardingPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-16 flex flex-col items-center">
             {/* Logo */}
             <div style={{ marginBottom: 24 }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" fill="#4A7C59" />
-                <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <img src="/icons/icon-192.png" alt="Nourishly" width={48} height={48} style={{ borderRadius: 12, display: "block" }} />
             </div>
             {/* Message */}
             <p style={{

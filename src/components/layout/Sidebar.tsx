@@ -102,14 +102,10 @@ export default function Sidebar() {
             </svg>
           )}
         </button>
-        <span className="mobile-topbar-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" fill="#4A7C59" />
-            <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-            <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+        <Link href="/dashboard" className="mobile-topbar-logo">
+          <img src="/icons/icon-192.png" alt="" width={20} height={20} style={{ borderRadius: 5, display: "block" }} />
           Nourishly
-        </span>
+        </Link>
       </div>
 
       {/* Backdrop, mobile only */}
@@ -132,7 +128,7 @@ export default function Sidebar() {
       }}>
 
         {/* Logo */}
-        <div style={{
+        <Link href="/dashboard" style={{
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
@@ -140,13 +136,10 @@ export default function Sidebar() {
           padding: "20px 16px 12px",
           borderBottom: "1px solid var(--color-border)",
           marginBottom: "8px",
+          textDecoration: "none",
         }}>
           <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" fill="#4A7C59" />
-              <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-              <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <img src="/icons/icon-192.png" alt="" width={22} height={22} style={{ borderRadius: 6, display: "block" }} />
           </span>
           <span style={{
             fontFamily: "var(--font-display), system-ui, sans-serif",
@@ -157,7 +150,7 @@ export default function Sidebar() {
           }}>
             Nourishly
           </span>
-        </div>
+        </Link>
 
         {/* Nav Links */}
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 12px" }}>
@@ -326,6 +319,7 @@ export default function Sidebar() {
             font-weight: 700;
             font-size: 1rem;
             color: var(--color-green-dark);
+            text-decoration: none;
           }
 
           :global(.sidebar) {
