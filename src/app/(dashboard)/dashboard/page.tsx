@@ -197,7 +197,52 @@ export default function DashboardPage() {
   void getBarColor; void getBarBg; void getStatusLabel;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px" }}>
+    <>
+      {isLoading && (
+        <div style={{
+          position: "fixed", inset: 0,
+          paddingLeft: "220px",
+          background: "var(--color-bg)",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 16, zIndex: 10,
+          animation: "fadeOut 0.3s ease forwards",
+          animationDelay: "0.5s",
+        }}>
+          <img
+            src="/icons/icon-192.png"
+            alt="Nourishly"
+            width={56}
+            height={56}
+            style={{ borderRadius: 14 }}
+          />
+          <div style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 600,
+            fontSize: "1rem",
+            color: "var(--color-text-3)",
+          }}>
+            Loading your dashboard…
+          </div>
+          <div style={{
+            width: 40, height: 4, borderRadius: 2,
+            background: "var(--color-border)",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%", borderRadius: 2,
+              background: "var(--color-green)",
+              animation: "loadBar 1s ease infinite",
+            }} />
+          </div>
+        </div>
+      )}
+
+      {!isLoading && (
+      <div style={{
+        display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px",
+        animation: "fadeIn 0.3s ease forwards",
+      }}>
 
       {/* ── Greeting Hero ── */}
       <div className="hero-card" style={{
@@ -224,7 +269,7 @@ export default function DashboardPage() {
           }}
         />
 
-        <div style={{ position: "relative", zIndex: 1 }}>
+        <div style={{ position: "relative", zIndex: 1, minHeight: "60px" }}>
           <h1 className="hero-title" style={{
             fontFamily: "var(--font-display), Georgia, serif",
             fontWeight: 700,
@@ -425,7 +470,7 @@ export default function DashboardPage() {
         </div>
 
         {isLoading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: "160px" }}>
             {[0, 1].map((i) => (
               <div key={i} className="card skeleton-card" style={{ padding: "16px 20px", animationDelay: `${i * 0.08}s` }}>
                 <div className="skeleton-line" style={{ width: "40%", height: 14, marginBottom: 8 }} />
@@ -436,7 +481,7 @@ export default function DashboardPage() {
         ) : (
           meals.length === 0 ? (
             <div className="card" style={{
-              minHeight: "140px",
+              minHeight: "160px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -453,7 +498,7 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: "160px" }}>
               {meals.map((meal, i) => (
                 <div
                   key={meal.log_id}
@@ -512,7 +557,7 @@ export default function DashboardPage() {
           onClick={toggleHistory}
           style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "16px 0",
+            padding: "16px 0", minHeight: "56px",
             cursor: "pointer", marginTop: 8, userSelect: "none"
           }}
         >
@@ -602,7 +647,11 @@ export default function DashboardPage() {
                   <div
                     onClick={() => day.meals.length > 0 && setExpandedDays(prev => {
                       const next = new Set(prev);
-                      next.has(day.date) ? next.delete(day.date) : next.add(day.date);
+                      if (next.has(day.date)) {
+                        next.delete(day.date);
+                      } else {
+                        next.add(day.date);
+                      }
                       return next;
                     })}
                     style={{
@@ -739,6 +788,8 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+      </div>
+      )}
 
       <style jsx>{`
         @keyframes pulse {
@@ -753,6 +804,19 @@ export default function DashboardPage() {
           0%, 100% { opacity: 0.55; }
           50%      { opacity: 1; }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes loadBar {
+          0% { width: 0%; margin-left: 0; }
+          50% { width: 100%; margin-left: 0; }
+          100% { width: 0%; margin-left: 100%; }
+        }
         .skeleton-card:hover {
           transform: none;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08);
@@ -764,6 +828,7 @@ export default function DashboardPage() {
         }
         .nutrition-card {
           padding: 20px 24px;
+          min-height: 160px;
         }
         .nutrition-number {
           font-size: 2.5rem;
@@ -807,6 +872,6 @@ export default function DashboardPage() {
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
