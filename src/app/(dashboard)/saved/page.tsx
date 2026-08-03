@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -59,22 +59,42 @@ function getCuisine(title: string, cuisine: string | null): string {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+type SortOption = "recent" | "oldest" | "title";
+
 export default function SavedPage() {
   const router = useRouter();
   const [items, setItems] = useState<SavedRecipeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("recent");
+  const isFirstFetch = useRef(true);
+
+  // Debounce the search input ~300ms before it drives the API call
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
-    fetchSaved(1, true);
-  }, []);
+    fetchSaved(1, true, debouncedSearch, sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, sort]);
 
-  async function fetchSaved(pageNum: number, replace: boolean) {
-    if (replace) setLoading(true); else setLoadingMore(true);
+  async function fetchSaved(pageNum: number, replace: boolean, q: string, sortOption: SortOption) {
+    if (replace) {
+      if (isFirstFetch.current) setInitialLoading(true); else setSearching(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
-      const res = await fetch(`/api/saved-recipes?page=${pageNum}`);
+      const params = new URLSearchParams({ page: String(pageNum), sort: sortOption });
+      if (q) params.set("q", q);
+      const res = await fetch(`/api/saved-recipes?${params.toString()}`);
       const data = await res.json() as { recipes: SavedRecipeItem[]; hasMore: boolean };
       if (res.ok) {
         setItems(prev => replace ? data.recipes : [...prev, ...data.recipes]);
@@ -82,8 +102,10 @@ export default function SavedPage() {
         setPage(pageNum);
       }
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setSearching(false);
       setLoadingMore(false);
+      isFirstFetch.current = false;
     }
   }
 
@@ -100,7 +122,7 @@ export default function SavedPage() {
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div style={{
         position: "fixed", inset: 0,
@@ -147,9 +169,9 @@ export default function SavedPage() {
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  // ── Empty state (no saved recipes at all — only when not searching) ────────
 
-  if (items.length === 0) {
+  if (items.length === 0 && !debouncedSearch) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
         <div className="card no-hover" style={{ padding: "48px 40px", textAlign: "center", maxWidth: 480, width: "100%" }}>
@@ -212,12 +234,78 @@ export default function SavedPage() {
         </p>
       </div>
 
+      {/* Search + sort controls */}
+      <div style={{
+        display: "flex",
+        gap: 12,
+        marginBottom: 20,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ position: "relative", flex: "1 1 260px", minWidth: 200 }}>
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search saved recipes…"
+            style={{
+              width: "100%",
+              padding: "10px 14px 10px 38px",
+              borderRadius: 10,
+              border: "1.5px solid var(--color-border)",
+              background: "var(--color-surface)",
+              color: "var(--color-text)",
+              fontSize: "0.875rem",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              outline: "none",
+            }}
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value as SortOption)}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1.5px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-text-2)",
+            fontSize: "0.875rem",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+            cursor: "pointer",
+            outline: "none",
+          }}
+        >
+          <option value="recent">Recently Saved</option>
+          <option value="oldest">Oldest First</option>
+          <option value="title">Title (A–Z)</option>
+        </select>
+      </div>
+
+      {/* No search results */}
+      {items.length === 0 && debouncedSearch && !searching && (
+        <div className="card no-hover" style={{ padding: "48px 40px", textAlign: "center" }}>
+          <p style={{ color: "var(--color-text-2)", fontSize: "0.9rem", margin: 0 }}>
+            No recipes match &lsquo;{debouncedSearch}&rsquo;
+          </p>
+        </div>
+      )}
+
       {/* Grid */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(4, 1fr)",
         gap: "16px",
-        marginTop: "24px"
+        marginTop: items.length === 0 ? 0 : "24px",
+        opacity: searching ? 0.5 : 1,
+        transition: "opacity 0.15s ease",
       }}>
         {items.map((item) => {
           if (!item.recipe) return null;
@@ -237,7 +325,7 @@ export default function SavedPage() {
         <div style={{ display: "flex", justifyContent: "center", marginTop: 32 }}>
           <button
             type="button"
-            onClick={() => fetchSaved(page + 1, false)}
+            onClick={() => fetchSaved(page + 1, false, debouncedSearch, sort)}
             disabled={loadingMore}
             style={{
               background: "var(--color-surface)",

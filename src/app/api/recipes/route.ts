@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import groq from '@/lib/claude/client'
+import { normaliseIngredientsToMetric, convertFahrenheitInText } from '@/lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,8 @@ Each object must have these exact fields:
 - steps: array of objects with { step_number: number, instruction: string }
 - nutrition: object with { calories: number, protein_g: number, carbs_g: number, fat_g: number }
 
+All ingredient quantities MUST use metric units only: grams (g) or kilograms (kg) for solids, millilitres (ml) or litres (L) for liquids, or count (e.g. "2 cloves", "1 onion") for whole items. NEVER use cups, oz, lb, tsp/tbsp-as-imperial, or °F. If a temperature is mentioned in a step, use °C.
+
 Do not include any text before or after the JSON array.`
 
     // 4. Groq API
@@ -216,14 +219,17 @@ Do not include any text before or after the JSON array.`
       )
     }
 
-    // 7. Save to Supabase
+    // 7. Save to Supabase (normalise any leftover imperial units to metric first)
     const rows = valid.map(recipe => ({
       user_id: user.id,
       title: recipe.title,
       description: recipe.description,
       cuisine: recipe.cuisine ?? null,
-      ingredients_json: recipe.ingredients,
-      steps_json: recipe.steps,
+      ingredients_json: normaliseIngredientsToMetric(recipe.ingredients),
+      steps_json: recipe.steps.map(step => ({
+        ...step,
+        instruction: convertFahrenheitInText(step.instruction),
+      })),
       cook_time_mins: recipe.cook_time_mins,
       nutrition_json: recipe.nutrition,
     }))
