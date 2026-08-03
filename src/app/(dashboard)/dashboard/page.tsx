@@ -27,6 +27,7 @@ interface MealLog {
   recipe_title: string;
   logged_time: string;
   calories: number;
+  meal_type?: string | null;
 }
 
 interface MealHistoryEntry {
@@ -43,6 +44,11 @@ interface DayHistory {
   date: string;
   meals: MealHistoryEntry[];
   totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+}
+
+interface WeekDay {
+  date: string;
+  calories: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -83,6 +89,81 @@ function getCaloriesRemaining(logged: number, target: number): number {
   return Math.max(target - logged, 0);
 }
 
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
+}
+
+function calculateStreak(weekData: WeekDay[]): number {
+  let streak = 0;
+  for (let i = weekData.length - 1; i >= 0; i--) {
+    if (weekData[i].calories > 0) streak++;
+    else break;
+  }
+  return streak;
+}
+
+const MEAL_CATEGORIES: { key: string; label: string }[] = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" },
+  { key: "snack", label: "Snacks" },
+];
+
+function CategoryIcon({ type }: { type: string }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (type === "breakfast") {
+    return (
+      <svg {...common}>
+        <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+        <line x1="6" y1="1" x2="6" y2="4" />
+        <line x1="10" y1="1" x2="10" y2="4" />
+        <line x1="14" y1="1" x2="14" y2="4" />
+      </svg>
+    );
+  }
+  if (type === "lunch") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+    );
+  }
+  if (type === "dinner") {
+    return (
+      <svg {...common}>
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M16.5 9.4 7.55 4.24" />
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.29 7 12 12 20.71 7" />
+      <line x1="12" y1="22" x2="12" y2="12" />
+    </svg>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -92,12 +173,8 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState<DayHistory[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyFetched, setHistoryFetched] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-  const [historyFilter, setHistoryFilter] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -106,39 +183,45 @@ export default function DashboardPage() {
     let channel: ReturnType<typeof supabase.channel> | undefined;
 
     async function fetchNutrition() {
-      try {
-        const res = await fetch(`/api/nutrition?date=${getLocalDateString()}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setTotals({
-          calories: data.totals.calories,
-          protein: data.totals.protein_g,
-          carbs: data.totals.carbs_g,
-          fat: data.totals.fat_g,
-        });
-        setTargets({
-          calories: data.targets.daily_calories,
-          protein: data.targets.daily_protein_g,
-          carbs: data.targets.daily_carbs_g,
-          fat: data.targets.daily_fat_g,
-        });
-        setMeals(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data.logs ?? []).map((log: any, i: number) => ({
-            log_id: log.log_id ?? `${log.recipe_id}-${i}`,
-            recipe_id: log.recipe_id,
-            recipe_title: log.recipe_title ?? "Logged Meal",
-            logged_time: "Logged today",
-            calories: log.calories,
-          }))
-        );
-      } finally {
-        setIsLoading(false);
-      }
+      const res = await fetch(`/api/nutrition?date=${getLocalDateString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setTotals({
+        calories: data.totals.calories,
+        protein: data.totals.protein_g,
+        carbs: data.totals.carbs_g,
+        fat: data.totals.fat_g,
+      });
+      setTargets({
+        calories: data.targets.daily_calories,
+        protein: data.targets.daily_protein_g,
+        carbs: data.targets.daily_carbs_g,
+        fat: data.targets.daily_fat_g,
+      });
+      setMeals(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data.logs ?? []).map((log: any, i: number) => ({
+          log_id: log.log_id ?? `${log.recipe_id}-${i}`,
+          recipe_id: log.recipe_id,
+          recipe_title: log.recipe_title ?? "Logged Meal",
+          logged_time: "Logged today",
+          calories: log.calories,
+          meal_type: log.meal_type ?? null,
+        }))
+      );
+    }
+
+    async function fetchHistory() {
+      const res = await fetch("/api/meal-history");
+      if (!res.ok) return;
+      const data = await res.json();
+      setHistoryData(data.days ?? []);
     }
 
     async function setup() {
-      await fetchNutrition();
+      await Promise.all([fetchNutrition(), fetchHistory()]);
+      setIsLoading(false);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setUserName(user.user_metadata?.full_name || "");
@@ -160,41 +243,34 @@ export default function DashboardPage() {
     };
   }, []);
 
-  async function fetchHistory() {
-    if (historyFetched) return;
-    setHistoryLoading(true);
-    try {
-      const res = await fetch('/api/meal-history');
-      if (!res.ok) return;
-      const data = await res.json();
-      setHistoryData(data.days ?? []);
-      setHistoryFetched(true);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
-  function toggleHistory() {
-    if (!historyOpen && !historyFetched) fetchHistory();
-    setHistoryOpen(prev => !prev);
-  }
-
-  const visibleDays = historyFilter
-    ? historyData.filter(d => d.date === historyFilter)
-    : historyData;
-
   const remaining = getCaloriesRemaining(totals.calories, targets.calories);
   const greeting = getGreeting();
 
   const NUTRITION_BARS = [
-    { key: "calories", label: "Calories", unit: "kcal", logged: totals.calories, target: targets.calories },
-    { key: "protein",  label: "Protein",  unit: "g",    logged: totals.protein,  target: targets.protein  },
-    { key: "carbs",    label: "Carbs",    unit: "g",    logged: totals.carbs,    target: targets.carbs    },
-    { key: "fat",      label: "Fat",      unit: "g",    logged: totals.fat,      target: targets.fat      },
+    { key: "protein", label: "Protein", unit: "g", logged: totals.protein, target: targets.protein },
+    { key: "carbs",   label: "Carbs",   unit: "g", logged: totals.carbs,   target: targets.carbs },
+    { key: "fat",     label: "Fat",     unit: "g", logged: totals.fat,     target: targets.fat },
   ];
 
   // keep helpers in scope so they are not flagged as unused
   void getBarColor; void getBarBg; void getStatusLabel;
+
+  const caloriePctRaw = targets.calories > 0 ? (totals.calories / targets.calories) * 100 : 0;
+
+  const weekData: WeekDay[] = [
+    ...[...historyData].slice(0, 6).reverse().map(d => ({ date: d.date, calories: d.totals.calories })),
+    { date: getLocalDateString(), calories: totals.calories },
+  ];
+  const streakCount = calculateStreak(weekData);
+
+  const mealsByCategory = MEAL_CATEGORIES.map(cat => {
+    const categoryMeals = meals.filter(m => (m.meal_type ?? "snack") === cat.key);
+    return {
+      ...cat,
+      meals: categoryMeals,
+      total: categoryMeals.reduce((sum, m) => sum + (m.calories ?? 0), 0),
+    };
+  });
 
   return (
     <>
@@ -281,9 +357,7 @@ export default function DashboardPage() {
             {greeting}{userName ? `, ${userName}` : ""} 👋
           </h1>
           <p style={{ fontSize: "0.95rem", color: "white", opacity: 0.85, margin: 0, lineHeight: 1.5 }}>
-            {isLoading
-              ? "Loading your nutrition summary…"
-              : remaining > 0
+            {remaining > 0
               ? `You have ${remaining} kcal remaining today — keep it up!`
               : "You’ve hit your calorie target for today!"}
           </p>
@@ -327,122 +401,173 @@ export default function DashboardPage() {
           Nutrition Summary
         </h2>
 
-        {isLoading ? (
-          <div className="nutrition-grid">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="card nutrition-card skeleton-card" style={{ animationDelay: `${i * 0.08}s` }}>
-                <div className="skeleton-line" style={{ width: "60%", height: 12, marginBottom: 16 }} />
-                <div className="skeleton-line" style={{ width: "45%", height: 28, marginBottom: 8 }} />
-                <div className="skeleton-line" style={{ width: "35%", height: 12, marginBottom: 16 }} />
-                <div className="skeleton-line" style={{ width: "100%", height: 10 }} />
-              </div>
-            ))}
+        {/* Calorie ring */}
+        <div className="card" style={{
+          padding: "24px 28px",
+          display: "flex",
+          alignItems: "center",
+          gap: "28px",
+          position: "relative",
+          marginBottom: "16px",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08)",
+        }}>
+
+          {/* Streak badge, top right */}
+          <div style={{ position: "absolute", top: 16, right: 20, display: "flex",
+            alignItems: "center", gap: 5, fontSize: "12px", color: "var(--color-text-3)",
+            background: "var(--color-surface-2)", padding: "4px 10px", borderRadius: "20px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c98500"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            {streakCount} day streak
           </div>
-        ) : (
-          <div className="nutrition-grid">
-            {NUTRITION_BARS.map((bar, i) => {
-              const rawPct = bar.target > 0 ? (bar.logged / bar.target) * 100 : 0;
-              const fillColor = rawPct > 100
-                ? "var(--color-danger)"
-                : rawPct >= 80
-                ? "#F59E0B"
-                : "var(--color-green)";
-              const pillBg = rawPct > 100
-                ? "var(--color-danger-light)"
-                : rawPct >= 80
-                ? "#FEF3C7"
-                : "var(--color-green-light)";
-              const pillTextColor = rawPct > 100
-                ? "var(--color-danger)"
-                : rawPct >= 80
-                ? "#92400E"
-                : "var(--color-green-dark)";
-              const pillText = rawPct > 100 ? "Over" : rawPct >= 80 ? "Almost there" : "On track";
-              const pct = clampPct(bar.logged, bar.target);
 
-              return (
-                <div
-                  key={bar.key}
-                  className="card nutrition-card"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    animationDelay: `${i * 0.08}s`,
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  {/* Label + status pill */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                    <span style={{
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--color-text-2)",
-                    }}>
-                      {bar.label}
-                    </span>
-                    <span style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: "20px",
-                      background: pillBg,
-                      color: pillTextColor,
-                    }}>
-                      {pillText}
-                    </span>
-                  </div>
+          {/* Ring */}
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="44" fill="none" stroke="var(--color-surface-2)" strokeWidth="14"/>
+            <circle cx="55" cy="55" r="44" fill="none"
+              stroke={caloriePctRaw >= 100 ? "var(--color-danger)" : caloriePctRaw >= 80 ? "#F59E0B" : "var(--color-green)"}
+              strokeWidth="14"
+              strokeDasharray={`${(Math.min(caloriePctRaw, 100)/100) * 276} 276`}
+              strokeLinecap="round"
+              transform="rotate(-90 55 55)"
+              style={{ transition: "stroke-dasharray 0.6s ease" }}
+            />
+            <text x="55" y="50" textAnchor="middle" fontSize="20" fontWeight="500" fill="var(--color-text)">
+              {totals.calories}
+            </text>
+            <text x="55" y="66" textAnchor="middle" fontSize="10" fill="var(--color-text-3)">
+              of {targets.calories}
+            </text>
+          </svg>
 
-                  {/* Big number */}
-                  <div className="nutrition-number" style={{
-                    fontFamily: "var(--font-body), system-ui, sans-serif",
-                    fontWeight: 700,
-                    color: "var(--color-text)",
-                    lineHeight: 1,
+          {/* Hero stat */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "12px", color: "var(--color-text-3)", textTransform: "uppercase",
+              letterSpacing: "0.06em", marginBottom: "4px" }}>
+              Today&apos;s progress
+            </div>
+            <div style={{ fontSize: "42px", fontWeight: 500, color: "var(--color-text)", lineHeight: 1 }}>
+              {Math.round(caloriePctRaw)}<span style={{ fontSize: "16px", color: "var(--color-text-3)",
+                fontWeight: 400, marginLeft: "6px" }}>%</span>
+            </div>
+            <div style={{ fontSize: "13px", color: "var(--color-text-2)", marginTop: "8px" }}>
+              of your <span style={{ color: "var(--color-green-dark)", fontWeight: 500 }}>
+              {targets.calories}</span> kcal goal reached
+            </div>
+            <div style={{ width: "100%", height: "5px", background: "var(--color-surface-2)",
+              borderRadius: "3px", marginTop: "12px", overflow: "hidden" }}>
+              <div style={{ height: "100%", background: "var(--color-green)", borderRadius: "3px",
+                width: `${Math.min(caloriePctRaw, 100)}%`, transition: "width 0.6s ease" }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Macro bars */}
+        <div className="nutrition-grid">
+          {NUTRITION_BARS.map((bar, i) => {
+            const rawPct = bar.target > 0 ? (bar.logged / bar.target) * 100 : 0;
+            const fillColor = rawPct > 100
+              ? "var(--color-danger)"
+              : rawPct >= 80
+              ? "#F59E0B"
+              : "var(--color-green)";
+            const pillBg = rawPct > 100
+              ? "var(--color-danger-light)"
+              : rawPct >= 80
+              ? "#FEF3C7"
+              : "var(--color-green-light)";
+            const pillTextColor = rawPct > 100
+              ? "var(--color-danger)"
+              : rawPct >= 80
+              ? "#92400E"
+              : "var(--color-green-dark)";
+            const pillText = rawPct > 100 ? "Over" : rawPct >= 80 ? "Almost there" : "On track";
+            const pct = clampPct(bar.logged, bar.target);
+
+            return (
+              <div
+                key={bar.key}
+                className="card nutrition-card"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  animationDelay: `${i * 0.08}s`,
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.08)",
+                }}
+              >
+                {/* Label + status pill */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                  <span style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: "var(--color-text-2)",
                   }}>
-                    {bar.logged}
-                  </div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
-                    of {bar.target} {bar.unit}
-                  </div>
-
-                  {/* Progress track */}
-                  <div style={{
-                    height: "10px",
-                    borderRadius: "5px",
-                    background: "var(--color-surface-2)",
-                    margin: "16px 0 8px",
-                    overflow: "hidden",
+                    {bar.label}
+                  </span>
+                  <span style={{
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: "20px",
+                    background: pillBg,
+                    color: pillTextColor,
                   }}>
-                    <div style={{
-                      height: "100%",
-                      borderRadius: "5px",
-                      background: fillColor,
-                      width: mounted ? `${pct}%` : "0%",
-                      transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
-                    }} />
-                  </div>
-
-                  {/* Footer: % left, amount right */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
-                      {Math.round(rawPct)}%
-                    </span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
-                      {bar.logged > bar.target
-                        ? `${bar.logged - bar.target}${bar.unit} over`
-                        : `${bar.target - bar.logged}${bar.unit} left`}
-                    </span>
-                  </div>
+                    {pillText}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        )}
+
+                {/* Big number */}
+                <div className="nutrition-number" style={{
+                  fontFamily: "var(--font-body), system-ui, sans-serif",
+                  fontWeight: 700,
+                  color: "var(--color-text)",
+                  lineHeight: 1,
+                }}>
+                  {bar.logged}
+                </div>
+                <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
+                  of {bar.target} {bar.unit}
+                </div>
+
+                {/* Progress track */}
+                <div style={{
+                  height: "10px",
+                  borderRadius: "5px",
+                  background: "var(--color-surface-2)",
+                  margin: "16px 0 8px",
+                  overflow: "hidden",
+                }}>
+                  <div style={{
+                    height: "100%",
+                    borderRadius: "5px",
+                    background: fillColor,
+                    width: mounted ? `${pct}%` : "0%",
+                    transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }} />
+                </div>
+
+                {/* Footer: % left, amount right */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
+                    {Math.round(rawPct)}%
+                  </span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)" }}>
+                    {bar.logged > bar.target
+                      ? `${bar.logged - bar.target}${bar.unit} over`
+                      : `${bar.target - bar.logged}${bar.unit} left`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
-      {/* ── Today's Logged Meals ── */}
+      {/* ── Food Diary ── */}
       <section>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
           <h2 style={{
@@ -453,90 +578,79 @@ export default function DashboardPage() {
             margin: 0,
             letterSpacing: "-0.01em",
           }}>
-            Today&apos;s Logged Meals
+            Food Diary
           </h2>
-          {!isLoading && (
-            <span style={{
-              background: "var(--color-green-light)",
-              color: "var(--color-green-dark)",
-              borderRadius: "20px",
-              padding: "2px 10px",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-            }}>
-              {meals.length} meal{meals.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <span style={{
+            background: "var(--color-green-light)",
+            color: "var(--color-green-dark)",
+            borderRadius: "20px",
+            padding: "2px 10px",
+            fontSize: "0.75rem",
+            fontWeight: 600,
+          }}>
+            {meals.length} meal{meals.length !== 1 ? "s" : ""}
+          </span>
         </div>
 
-        {isLoading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: "160px" }}>
-            {[0, 1].map((i) => (
-              <div key={i} className="card skeleton-card" style={{ padding: "16px 20px", animationDelay: `${i * 0.08}s` }}>
-                <div className="skeleton-line" style={{ width: "40%", height: 14, marginBottom: 8 }} />
-                <div className="skeleton-line" style={{ width: "25%", height: 11 }} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          meals.length === 0 ? (
-            <div className="card" style={{
-              minHeight: "160px",
+        {mealsByCategory.map(cat => (
+          <div key={cat.key} className="card" style={{ padding: 0, marginBottom: "10px", overflow: "hidden" }}>
+            <div style={{
+              padding: "10px 16px",
+              background: "var(--color-surface-2)",
               display: "flex",
-              flexDirection: "column",
+              justifyContent: "space-between",
               alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              textAlign: "center",
             }}>
-              <span aria-hidden="true" style={{ fontSize: "2rem", color: "var(--color-green)", lineHeight: 1 }}>+</span>
-              <p style={{ margin: 0, color: "var(--color-text-2)", fontSize: "0.9rem", fontWeight: 500 }}>
-                No meals logged today.
-              </p>
-              <p style={{ margin: 0, color: "var(--color-text-2)", fontSize: "0.8rem" }}>
-                Mark a recipe as cooked to get started.
-              </p>
+              <span style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--color-text-2)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+                <CategoryIcon type={cat.key} />
+                {cat.label}
+              </span>
+              <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>{cat.total} kcal</span>
             </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", minHeight: "160px" }}>
-              {meals.map((meal, i) => (
+
+            {cat.meals.length === 0 ? (
+              <div style={{ padding: "10px 16px", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
+                No {cat.label.toLowerCase()} logged
+              </div>
+            ) : (
+              cat.meals.map((meal, i) => (
                 <div
                   key={meal.log_id}
-                  className="card"
                   style={{
-                    padding: "16px 20px",
+                    padding: "12px 16px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: "16px",
-                    animationDelay: `${i * 0.06}s`,
+                    borderTop: i === 0 ? "none" : "1px solid var(--color-border)",
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: "0.9rem",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}>
-                      <Link
-                        href={`/generate/${meal.recipe_id}`}
-                        style={{
-                          color: "var(--color-text)", textDecoration: "none",
-                          fontWeight: 600
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-                        onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
-                      >
-                        {meal.recipe_title ?? "Logged Meal"}
-                      </Link>
-                    </div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: "2px" }}>
-                      {meal.logged_time}
-                    </div>
+                    <Link
+                      href={`/generate/${meal.recipe_id}`}
+                      style={{
+                        color: "var(--color-text)",
+                        textDecoration: "none",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                      onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+                    >
+                      {meal.recipe_title ?? "Logged Meal"}
+                    </Link>
                   </div>
                   <span style={{
-                    fontSize: "0.9rem",
+                    fontSize: "0.85rem",
                     fontWeight: 600,
                     color: "var(--color-green)",
                     whiteSpace: "nowrap",
@@ -545,248 +659,234 @@ export default function DashboardPage() {
                     {meal.calories} kcal
                   </span>
                 </div>
-              ))}
-            </div>
-          )
-        )}
+              ))
+            )}
+          </div>
+        ))}
       </section>
 
-      {/* ── Recent History ── */}
+      {/* ── Weekly Trend ── */}
       <section>
-        <div
-          onClick={toggleHistory}
-          style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "16px 0", minHeight: "56px",
-            cursor: "pointer", marginTop: 8, userSelect: "none"
-          }}
-        >
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700,
-            fontSize: "1.25rem", color: "var(--color-text)" }}>
-            History
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ background: "var(--color-surface-2)", color: "var(--color-text-3)",
-              borderRadius: 20, padding: "2px 10px", fontSize: "0.75rem" }}>
-              Last 7 days
-            </span>
-            <input
-              type="date"
-              value={historyFilter}
-              max={new Date(Date.now() - 86400000).toISOString().split('T')[0]}
-              onChange={e => setHistoryFilter(e.target.value)}
-              onClick={e => e.stopPropagation()}
-              style={{
-                fontSize: "0.75rem", padding: "3px 8px", borderRadius: 8,
-                border: "1px solid var(--color-border)", background: "white",
-                color: "var(--color-text-2)", cursor: "pointer", outline: "none"
-              }}
-            />
-            {historyFilter && (
-              <button
-                onClick={e => { e.stopPropagation(); setHistoryFilter(''); }}
-                style={{
-                  fontSize: "0.75rem", color: "var(--color-text-3)",
-                  background: "none", border: "none", cursor: "pointer",
-                  padding: "0 4px"
-                }}
-              >
-                ✕ Clear
-              </button>
-            )}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ transform: historyOpen ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.2s ease" }}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-        </div>
-
-        {historyOpen && (
-          <div style={{ marginBottom: 24 }}>
-
-            {/* Loading skeleton */}
-            {historyLoading && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[1,2,3,4].map(i => (
-                  <div key={i} style={{ height: 52, borderRadius: 10,
-                    background: "var(--color-surface-2)",
-                    animation: "pulse 1.5s ease infinite" }} />
-                ))}
-              </div>
-            )}
-
-            {/* History rows */}
-            {!historyLoading && visibleDays.length === 0 && (
-              <div style={{ color: "var(--color-text-3)", fontSize: "0.85rem",
-                padding: 20, textAlign: "center" }}>
-                No meals logged on this date.
-              </div>
-            )}
-
-            {!historyLoading && visibleDays.map(day => {
-              const isExpanded = expandedDays.has(day.date);
-              const pct = targets.calories > 0
-                ? Math.min((day.totals.calories / targets.calories) * 100, 100)
-                : 0;
-              const displayDate = new Date(day.date + 'T00:00:00')
-                .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-
+        <div className="card">
+          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", marginBottom: "16px" }}>
+            This Week
+          </h3>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "80px" }}>
+            {weekData.map((day, i) => {
+              const h = targets.calories > 0
+                ? Math.max((day.calories / targets.calories) * 64, 3)
+                : 3;
+              const isToday = i === weekData.length - 1;
+              const over = targets.calories > 0 && day.calories > targets.calories;
               return (
-                <div key={day.date} style={{
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  marginBottom: 8,
-                  background: "white"
-                }}>
-
-                  {/* Day summary row */}
-                  <div
-                    onClick={() => day.meals.length > 0 && setExpandedDays(prev => {
-                      const next = new Set(prev);
-                      if (next.has(day.date)) {
-                        next.delete(day.date);
-                      } else {
-                        next.add(day.date);
-                      }
-                      return next;
-                    })}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "14px 16px", borderRadius: 0,
-                      background: "white",
-                      cursor: day.meals.length > 0 ? "pointer" : "default",
-                      transition: "background 0.15s ease",
-                      ...(day.meals.length === 0 ? { opacity: 0.6 } : {})
-                    }}
-                  >
-                    {/* Date */}
-                    <span style={{ fontWeight: 600, fontSize: "0.85rem",
-                      color: "var(--color-text)", minWidth: 90 }}>
-                      {displayDate}
-                    </span>
-
-                    {/* Mini progress bar */}
-                    <div style={{ flex: 1, height: 6, borderRadius: 3,
-                      background: "var(--color-surface-2)", overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", borderRadius: 3,
-                        width: `${pct}%`,
-                        background: pct >= 100 ? "var(--color-danger)"
-                          : pct >= 80 ? "#F59E0B"
-                          : "var(--color-green)",
-                        transition: "width 0.4s ease"
-                      }} />
-                    </div>
-
-                    {/* Calories + meal count */}
-                    {day.meals.length === 0 ? (
-                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-3)",
-                        minWidth: 80, textAlign: "right" }}>
-                        No meals
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: "0.8rem", color: "var(--color-text-2)",
-                        minWidth: 80, textAlign: "right", fontWeight: 500 }}>
-                        {day.totals.calories} kcal · {day.meals.length} meal{day.meals.length !== 1 ? "s" : ""}
-                      </span>
-                    )}
-
-                    {/* Expand chevron */}
-                    {day.meals.length > 0 && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="var(--color-text-3)" strokeWidth="2"
-                        strokeLinecap="round" strokeLinejoin="round"
-                        style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                          transition: "transform 0.2s ease", flexShrink: 0 }}>
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Expanded meal detail */}
-                  {isExpanded && (
-                    <div style={{ padding: "14px 16px",
-                      background: "white", borderRadius: 0,
-                      borderTop: "1px solid var(--color-border)" }}>
-
-                      {day.meals.map(meal => (
-                        <div key={meal.log_id} style={{
-                          background: "var(--color-surface-2)",
-                          borderRadius: 8,
-                          padding: "10px 14px",
-                          marginBottom: 8,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 6
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <Link
-                              href={`/generate/${meal.recipe_id}`}
-                              style={{
-                                fontWeight: 600, fontSize: "0.875rem",
-                                color: "var(--color-text)", textDecoration: "none"
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-                              onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
-                            >
-                              {meal.title}
-                            </Link>
-                            <span style={{ fontSize: "0.875rem", color: "var(--color-green-dark)",
-                              fontWeight: 700 }}>
-                              {meal.calories} kcal
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", gap: 16 }}>
-                            {[
-                              { label: "Protein", value: meal.protein_g, unit: "g" },
-                              { label: "Carbs", value: meal.carbs_g, unit: "g" },
-                              { label: "Fat", value: meal.fat_g, unit: "g" },
-                            ].map(macro => (
-                              <span key={macro.label} style={{ fontSize: "0.75rem" }}>
-                                <span style={{ fontWeight: 600, color: "var(--color-text)" }}>
-                                  {macro.value}{macro.unit}
-                                </span>{" "}
-                                <span style={{ color: "var(--color-text-3)", fontSize: "0.7rem",
-                                  textTransform: "uppercase" }}>
-                                  {macro.label}
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Day nutrition summary */}
-                      <div style={{ display: "flex", gap: 16, marginTop: 4,
-                        paddingTop: 10, borderTop: "1px solid var(--color-border)" }}>
-                        {[
-                          { label: "Protein", value: day.totals.protein_g, unit: "g" },
-                          { label: "Carbs", value: day.totals.carbs_g, unit: "g" },
-                          { label: "Fat", value: day.totals.fat_g, unit: "g" },
-                        ].map(macro => (
-                          <div key={macro.label} style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: "0.85rem", fontWeight: 700,
-                              color: "var(--color-green-dark)" }}>
-                              {macro.value}{macro.unit}
-                            </div>
-                            <div style={{ fontSize: "0.7rem", color: "var(--color-text-3)",
-                              textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                              {macro.label}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "0.65rem", color: "var(--color-text-3)" }}>{day.calories || ""}</span>
+                  <div style={{
+                    width: "100%",
+                    height: `${h}px`,
+                    borderRadius: "3px 3px 0 0",
+                    background: over ? "var(--color-danger)" : day.calories > 0 ? "var(--color-green)" : "var(--color-border)",
+                    opacity: isToday ? 1 : day.calories > 0 ? 0.7 : 0.3,
+                  }} />
+                  <span style={{
+                    fontSize: "0.65rem",
+                    color: isToday ? "var(--color-text)" : "var(--color-text-3)",
+                    fontWeight: isToday ? 700 : 400,
+                  }}>
+                    {dayLabel(day.date)}
+                  </span>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
+      </section>
+
+      {/* ── History ── */}
+      <section>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "16px 0", minHeight: "56px", marginTop: 8,
+        }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700,
+            fontSize: "1.25rem", color: "var(--color-text)" }}>
+            History
+          </span>
+          <span style={{ background: "var(--color-surface-2)", color: "var(--color-text-3)",
+            borderRadius: 20, padding: "2px 10px", fontSize: "0.75rem" }}>
+            Last 7 days
+          </span>
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+
+          {historyData.length === 0 && (
+            <div style={{ color: "var(--color-text-3)", fontSize: "0.85rem",
+              padding: 20, textAlign: "center" }}>
+              No meals logged in the past week.
+            </div>
+          )}
+
+          {historyData.map(day => {
+            const isExpanded = expandedDays.has(day.date);
+            const pct = targets.calories > 0
+              ? Math.min((day.totals.calories / targets.calories) * 100, 100)
+              : 0;
+            const displayDate = new Date(day.date + 'T00:00:00')
+              .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+            return (
+              <div key={day.date} style={{
+                border: "1px solid var(--color-border)",
+                borderRadius: 12,
+                overflow: "hidden",
+                marginBottom: 8,
+                background: "white"
+              }}>
+
+                {/* Day summary row */}
+                <div
+                  onClick={() => day.meals.length > 0 && setExpandedDays(prev => {
+                    const next = new Set(prev);
+                    if (next.has(day.date)) {
+                      next.delete(day.date);
+                    } else {
+                      next.add(day.date);
+                    }
+                    return next;
+                  })}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "14px 16px", borderRadius: 0,
+                    background: "white",
+                    cursor: day.meals.length > 0 ? "pointer" : "default",
+                    transition: "background 0.15s ease",
+                    ...(day.meals.length === 0 ? { opacity: 0.6 } : {})
+                  }}
+                >
+                  {/* Date */}
+                  <span style={{ fontWeight: 600, fontSize: "0.85rem",
+                    color: "var(--color-text)", minWidth: 90 }}>
+                    {displayDate}
+                  </span>
+
+                  {/* Mini progress bar */}
+                  <div style={{ flex: 1, height: 6, borderRadius: 3,
+                    background: "var(--color-surface-2)", overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", borderRadius: 3,
+                      width: `${pct}%`,
+                      background: pct >= 100 ? "var(--color-danger)"
+                        : pct >= 80 ? "#F59E0B"
+                        : "var(--color-green)",
+                      transition: "width 0.4s ease"
+                    }} />
+                  </div>
+
+                  {/* Calories + meal count */}
+                  {day.meals.length === 0 ? (
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-text-3)",
+                      minWidth: 80, textAlign: "right" }}>
+                      No meals
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-text-2)",
+                      minWidth: 80, textAlign: "right", fontWeight: 500 }}>
+                      {day.totals.calories} kcal · {day.meals.length} meal{day.meals.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+
+                  {/* Expand chevron */}
+                  {day.meals.length > 0 && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="var(--color-text-3)" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease", flexShrink: 0 }}>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* Expanded meal detail */}
+                {isExpanded && (
+                  <div style={{ padding: "14px 16px",
+                    background: "white", borderRadius: 0,
+                    borderTop: "1px solid var(--color-border)" }}>
+
+                    {day.meals.map(meal => (
+                      <div key={meal.log_id} style={{
+                        background: "var(--color-surface-2)",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        marginBottom: 8,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <Link
+                            href={`/generate/${meal.recipe_id}`}
+                            style={{
+                              fontWeight: 600, fontSize: "0.875rem",
+                              color: "var(--color-text)", textDecoration: "none"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+                          >
+                            {meal.title}
+                          </Link>
+                          <span style={{ fontSize: "0.875rem", color: "var(--color-green-dark)",
+                            fontWeight: 700 }}>
+                            {meal.calories} kcal
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 16 }}>
+                          {[
+                            { label: "Protein", value: meal.protein_g, unit: "g" },
+                            { label: "Carbs", value: meal.carbs_g, unit: "g" },
+                            { label: "Fat", value: meal.fat_g, unit: "g" },
+                          ].map(macro => (
+                            <span key={macro.label} style={{ fontSize: "0.75rem" }}>
+                              <span style={{ fontWeight: 600, color: "var(--color-text)" }}>
+                                {macro.value}{macro.unit}
+                              </span>{" "}
+                              <span style={{ color: "var(--color-text-3)", fontSize: "0.7rem",
+                                textTransform: "uppercase" }}>
+                                {macro.label}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Day nutrition summary */}
+                    <div style={{ display: "flex", gap: 16, marginTop: 4,
+                      paddingTop: 10, borderTop: "1px solid var(--color-border)" }}>
+                      {[
+                        { label: "Protein", value: day.totals.protein_g, unit: "g" },
+                        { label: "Carbs", value: day.totals.carbs_g, unit: "g" },
+                        { label: "Fat", value: day.totals.fat_g, unit: "g" },
+                      ].map(macro => (
+                        <div key={macro.label} style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: "0.85rem", fontWeight: 700,
+                            color: "var(--color-green-dark)" }}>
+                            {macro.value}{macro.unit}
+                          </div>
+                          <div style={{ fontSize: "0.7rem", color: "var(--color-text-3)",
+                            textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            {macro.label}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </section>
       </div>
       )}
@@ -845,7 +945,7 @@ export default function DashboardPage() {
         }
         .nutrition-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 16px;
         }
         @media (max-width: 640px) {
