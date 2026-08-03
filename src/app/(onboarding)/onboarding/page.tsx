@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { calculateNutritionTargets } from '@/lib/nutrition'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -208,26 +209,18 @@ export default function OnboardingPage() {
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   function calculateTargets() {
-    const ageNum = parseInt(age)
-    const weightNum = parseFloat(weight)
-    const heightNum = parseFloat(height)
+    const targets = calculateNutritionTargets({
+      weight_kg: parseFloat(weight),
+      height_cm: parseFloat(height),
+      age: parseInt(age),
+      sex,
+      health_goal: selectedGoal,
+    })
 
-    // Mifflin-St Jeor uses a male/female offset; default to the female offset
-    // (the more conservative estimate) when the user prefers not to say.
-    const bmr = sex === 'male'
-      ? 10 * weightNum + 6.25 * heightNum - 5 * ageNum + 5
-      : 10 * weightNum + 6.25 * heightNum - 5 * ageNum - 161
-
-    const tdee = bmr * 1.375
-
-    let calories = tdee
-    if (selectedGoal === 'weight-loss') calories = tdee - 500
-    else if (selectedGoal === 'muscle-gain') calories = tdee + 300
-
-    setDailyCalories(Math.round(calories))
-    setDailyProtein(Math.round((calories * 0.25) / 4))
-    setDailyCarbs(Math.round((calories * 0.45) / 4))
-    setDailyFat(Math.round((calories * 0.30) / 9))
+    setDailyCalories(targets.daily_calories)
+    setDailyProtein(targets.daily_protein_g)
+    setDailyCarbs(targets.daily_carbs_g)
+    setDailyFat(targets.daily_fat_g)
     setCalculating(true)
   }
 

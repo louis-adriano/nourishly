@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// ─── GET /api/saved-recipes?page=1 ───────────────────────────────────────────
+// ─── GET /api/saved-recipes?page=1&q=&sort=recent ────────────────────────────
 
 export async function GET(request: Request) {
   try {
@@ -13,14 +13,16 @@ export async function GET(request: Request) {
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
     const from = (page - 1) * 20
     const to = page * 20 - 1
+    const q = (searchParams.get('q') ?? '').trim()
+    const sort = searchParams.get('sort') ?? 'recent'
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('saved_recipes')
       .select(`
         saved_id,
         saved_at,
         recipe_id,
-        recipes (
+        recipes!inner (
           recipe_id,
           title,
           description,
@@ -31,8 +33,25 @@ export async function GET(request: Request) {
         )
       `)
       .eq('user_id', user.id)
-      .order('saved_at', { ascending: false })
-      .range(from, to)
+
+    if (q) {
+      query = query.ilike('recipes.title', `%${q}%`)
+    }
+
+    switch (sort) {
+      case 'oldest':
+        query = query.order('saved_at', { ascending: true })
+        break
+      case 'title':
+        query = query.order('title', { ascending: true, referencedTable: 'recipes' })
+        break
+      case 'recent':
+      default:
+        query = query.order('saved_at', { ascending: false })
+        break
+    }
+
+    const { data, error } = await query.range(from, to)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

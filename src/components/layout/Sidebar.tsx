@@ -193,13 +193,23 @@ export default function Sidebar() {
 
         {/* User + Logout */}
         <div style={{ borderTop: "1px solid var(--color-border)", padding: "12px 16px" }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "8px",
-          }}>
+          <Link
+            href="/profile"
+            onClick={() => setMobileOpen(false)}
+            className="user-info-link"
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: "10px",
+              marginBottom: "8px",
+              padding: "6px",
+              margin: "-6px -6px 8px",
+              borderRadius: "10px",
+              textDecoration: "none",
+              transition: "background 0.15s ease",
+            }}
+          >
             <div style={{
               width: "32px",
               height: "32px",
@@ -237,7 +247,7 @@ export default function Sidebar() {
                 {email}
               </span>
             </div>
-          </div>
+          </Link>
 
           <button className="logout-btn" type="button" onClick={handleLogOut}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -251,6 +261,10 @@ export default function Sidebar() {
       </aside>
 
       <style jsx>{`
+        .user-info-link:hover {
+          background: var(--color-surface-2);
+        }
+
         .logout-btn {
           display: flex;
           align-items: center;

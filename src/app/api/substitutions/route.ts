@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import groq from '@/lib/claude/client'
 import { createClient } from '@/lib/supabase/server'
+import { normaliseUnitsInFreeText } from '@/lib/units'
 
 const SUBSTITUTION_LIMIT = 10
 
@@ -68,6 +69,8 @@ ${JSON.stringify(recipe, null, 2)}
 
 User request: ${userMessage}
 
+All ingredient quantities in your response MUST use metric units only: grams (g) or kilograms (kg) for solids, millilitres (ml) or litres (L) for liquids, or count (e.g. "2 cloves", "1 onion") for whole items. NEVER use cups, oz, lb, tsp/tbsp-as-imperial, or °F. If a temperature is mentioned, use °C.
+
 Respond with a JSON object only (no markdown, no extra text) in this exact format:
 {
   "substitute": "the substitute ingredient name",
@@ -93,6 +96,14 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
         { error: 'Failed to parse substitution response' },
         { status: 502 }
       )
+    }
+
+    // Safety net: normalise any leftover imperial units the model returned
+    if (typeof parsed.substitute === 'string') {
+      parsed.substitute = normaliseUnitsInFreeText(parsed.substitute)
+    }
+    if (typeof parsed.explanation === 'string') {
+      parsed.explanation = normaliseUnitsInFreeText(parsed.explanation)
     }
 
     void supabase.from('substitutions').insert({
