@@ -136,6 +136,8 @@ export default function GeneratePage() {
   const [modalCuisine, setModalCuisine] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [dietaryNotes, setDietaryNotes] = useState("");
+  const [cuisineNotes, setCuisineNotes] = useState("");
 
   async function openPrefs() {
     setPrefsOpen(true);
@@ -147,7 +149,7 @@ export default function GeneratePage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("health_goal, dietary_restrictions, cuisine_preferences")
+        .select("health_goal, dietary_restrictions, cuisine_preferences, dietary_notes, cuisine_notes")
         .eq("user_id", user.id)
         .single();
       if (data) {
@@ -176,6 +178,8 @@ export default function GeneratePage() {
         const normalizedCuisine = (data.cuisine_preferences ?? [])
           .map((c: string) => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase());
         setModalCuisine(normalizedCuisine);
+        setDietaryNotes(data.dietary_notes ?? "");
+        setCuisineNotes(data.cuisine_notes ?? "");
       }
     } finally {
       setLoadingPrefs(false);
@@ -199,7 +203,9 @@ export default function GeneratePage() {
         body: JSON.stringify({
           health_goal: modalGoal,
           dietary_restrictions: modalDiet,
+          dietary_notes: dietaryNotes,
           cuisine_preferences: modalCuisine,
+          cuisine_notes: cuisineNotes,
         }),
       });
       setSaveSuccess(true);
@@ -427,6 +433,30 @@ export default function GeneratePage() {
                   </div>
                 </div>
 
+                 <div style={{ marginBottom: "16px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+                    Anything else? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={dietaryNotes}
+                    onChange={e => setDietaryNotes(e.target.value)}
+                    placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar..."
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      borderRadius: "10px",
+                      border: "1.5px solid var(--color-border)",
+                      padding: "10px 14px",
+                      fontSize: "0.82rem",
+                      color: "var(--color-text)",
+                      fontFamily: "var(--font-body), system-ui, sans-serif",
+                      resize: "none",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
                 {/* Cuisine Preferences */}
                 <div style={{ marginBottom: "28px" }}>
                   <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
@@ -437,6 +467,30 @@ export default function GeneratePage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                 <div style={{ marginBottom: "20px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+                    Any other cuisine notes? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={cuisineNotes}
+                    onChange={e => setCuisineNotes(e.target.value)}
+                    placeholder="e.g. I love spicy food, no fusion cuisine, street food style..."
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      borderRadius: "10px",
+                      border: "1.5px solid var(--color-border)",
+                      padding: "10px 14px",
+                      fontSize: "0.82rem",
+                      color: "var(--color-text)",
+                      fontFamily: "var(--font-body), system-ui, sans-serif",
+                      resize: "none",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
                 </div>
 
                 {/* Save */}
