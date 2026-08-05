@@ -154,6 +154,8 @@ export default function OnboardingPage() {
   const [dailyFat, setDailyFat] = useState(65)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dietaryNotes, setDietaryNotes] = useState('')
+  const [cuisineNotes, setCuisineNotes] = useState('')
 
   // Body metrics state
   const [age, setAge] = useState('')
@@ -234,7 +236,9 @@ export default function OnboardingPage() {
       body: JSON.stringify({
         health_goal: selectedGoal,
         dietary_restrictions: selectedDiet,
+        dietary_notes: dietaryNotes,
         cuisine_preferences: selectedCuisines,
+        cuisine_notes: cuisineNotes,
         daily_calories: dailyCalories,
         daily_protein_g: dailyProtein,
         daily_carbs_g: dailyCarbs,
@@ -411,6 +415,18 @@ export default function OnboardingPage() {
                 )
               })}
             </div>
+              <div className="mb-6">
+              <label className="text-sm font-semibold text-gray-700 block mb-2">
+                Anything else? <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={dietaryNotes}
+                onChange={e => setDietaryNotes(e.target.value)}
+                placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar, I only eat organic..."
+                rows={3}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150 resize-none"
+              />
+            </div>
             <div className="flex justify-between items-center">
               {backButton(1)}
               {selectedDiet.length === 0 ? (
@@ -454,6 +470,18 @@ export default function OnboardingPage() {
                 </button>
               )
             })}
+          </div>
+          <div className="mb-6">
+            <label className="text-sm font-semibold text-gray-700 block mb-2">
+              Any other cuisine preferences? <span className="font-normal text-gray-400">(optional)</span>
+            </label>
+            <textarea
+              value={cuisineNotes}
+              onChange={e => setCuisineNotes(e.target.value)}
+              placeholder="e.g. I love spicy food, I prefer street food style, no fusion cuisine..."
+              rows={3}
+              className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150 resize-none"
+            />
           </div>
           <div className="flex justify-between">
             {backButton(2)}

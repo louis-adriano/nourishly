@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     // 2. Profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('health_goal, dietary_restrictions, cuisine_preferences')
+      .select('health_goal, dietary_restrictions, cuisine_preferences, dietary_notes, cuisine_notes')
       .eq('user_id', user.id)
       .single()
 
@@ -128,12 +128,15 @@ export async function POST(request: Request) {
       Array.isArray(profile.cuisine_preferences) && profile.cuisine_preferences.length > 0
         ? profile.cuisine_preferences.join(', ')
         : 'Any'
+    
+    const dietaryNotes = (profile as Record<string, unknown>).dietary_notes as string | null
+    const cuisineNotes = (profile as Record<string, unknown>).cuisine_notes as string | null
 
     const prompt = `You are a professional chef and nutritionist with deep knowledge of authentic cuisines. Generate exactly 4 personalised recipes based on this profile:
 
 Health goal: ${profile.health_goal}
-Dietary restrictions: ${restrictions}
-Cuisine preferences: ${cuisines}
+Dietary restrictions: ${restrictions}${dietaryNotes ? `\nAdditional dietary notes (STRICTLY follow these): ${dietaryNotes}` : ''}
+Cuisine preferences: ${cuisines}${cuisineNotes ? `\nAdditional cuisine notes (STRICTLY follow these): ${cuisineNotes}` : ''}
 
 ${filterNote}
 ${varietyHint}
