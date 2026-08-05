@@ -174,6 +174,24 @@ export default function RecipeDetailPage() {
       });
   }, [recipe]);
 
+  // ── Restore chat history + remaining count on mount ─────────────────────────
+  useEffect(() => {
+    if (!recipe) return;
+    fetch(`/api/substitutions?recipe_id=${recipe.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.messages?.length) {
+          setMessages(
+            data.messages.map((m: { role: "user" | "ai"; content: string }) => ({
+              role: m.role,
+              text: m.content,
+            }))
+          );
+        }
+        if (data?.remaining !== undefined) setRemaining(data.remaining);
+      });
+  }, [recipe]);
+
   // ── Scroll chat to bottom on new messages ───────────────────────────────────
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
