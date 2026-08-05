@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [googleLoading, setGoogleLoading] = useState(false)
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -27,6 +29,19 @@ export default function LoginPage() {
     }
 
     router.push('/dashboard')
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+
+    if (error) {
+      setError(error.message)
+      setGoogleLoading(false)
+    }
   }
 
   return (
@@ -100,6 +115,18 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Log In'}
             </button>
           </form>
+
+          <div className="divider"><span>or</span></div>
+
+          <button type="button" className="google-btn" onClick={handleGoogleSignIn} disabled={googleLoading}>
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#FFC107" d="M43.6 20.5h-1.9V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z" />
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 16.1 3 9.3 7.5 6.3 14.7z" />
+              <path fill="#4CAF50" d="M24 45c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4C29.6 36.5 27 37.5 24 37.5c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.2 40.5 16.1 45 24 45z" />
+              <path fill="#1976D2" d="M43.6 20.5h-1.9V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.6 5.4C41.9 35.6 45 30.2 45 24c0-1.4-.1-2.7-.4-3.5z" />
+            </svg>
+            {googleLoading ? 'Redirecting...' : 'Continue with Google'}
+          </button>
         </div>
       </div>
 
@@ -139,6 +166,11 @@ export default function LoginPage() {
         .submit-btn:hover { background: #245f3c; }
         .submit-btn:active { transform: scale(0.98); }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: #9db8aa; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2ede6; }
+        .google-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid #d4e6da; background: #fff; color: #1a3a28; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.15s ease, border-color 0.15s ease; box-sizing: border-box; }
+        .google-btn:hover:not(:disabled) { background: #f5f9f6; border-color: #b8d8c4; }
+        .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         @media (max-width: 768px) { .panel-left { display: none; } }
         @media (max-width: 480px) {
           .panel-right { padding: 32px 20px; }
