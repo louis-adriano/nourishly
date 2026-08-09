@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -13,6 +13,7 @@ interface SavedRecipeItem {
   recipe: {
     recipe_id: string;
     title: string;
+    description: string;
     cook_time_mins: number;
     cuisine: string | null;
     nutrition_json: {
@@ -58,22 +59,42 @@ function getCuisine(title: string, cuisine: string | null): string {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+type SortOption = "recent" | "oldest" | "title";
+
 export default function SavedPage() {
   const router = useRouter();
   const [items, setItems] = useState<SavedRecipeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("recent");
+  const isFirstFetch = useRef(true);
+
+  // Debounce the search input ~300ms before it drives the API call
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
-    fetchSaved(1, true);
-  }, []);
+    fetchSaved(1, true, debouncedSearch, sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, sort]);
 
-  async function fetchSaved(pageNum: number, replace: boolean) {
-    if (replace) setLoading(true); else setLoadingMore(true);
+  async function fetchSaved(pageNum: number, replace: boolean, q: string, sortOption: SortOption) {
+    if (replace) {
+      if (isFirstFetch.current) setInitialLoading(true); else setSearching(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
-      const res = await fetch(`/api/saved-recipes?page=${pageNum}`);
+      const params = new URLSearchParams({ page: String(pageNum), sort: sortOption });
+      if (q) params.set("q", q);
+      const res = await fetch(`/api/saved-recipes?${params.toString()}`);
       const data = await res.json() as { recipes: SavedRecipeItem[]; hasMore: boolean };
       if (res.ok) {
         setItems(prev => replace ? data.recipes : [...prev, ...data.recipes]);
@@ -81,8 +102,10 @@ export default function SavedPage() {
         setPage(pageNum);
       }
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setSearching(false);
       setLoadingMore(false);
+      isFirstFetch.current = false;
     }
   }
 
@@ -99,19 +122,56 @@ export default function SavedPage() {
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (initialLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <div style={{ textAlign: "center", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
-          Loading saved recipes…
+      <div style={{
+        position: "fixed", inset: 0,
+        background: "var(--color-bg)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: 16, zIndex: 10,
+        paddingLeft: "220px",
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          alt="Nourishly"
+          width={56}
+          height={56}
+          style={{ borderRadius: 14 }}
+        />
+        <div style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 600,
+          fontSize: "1rem",
+          color: "var(--color-text-3)",
+        }}>
+          Loading…
         </div>
+        <div style={{
+          width: 40, height: 4, borderRadius: 2,
+          background: "var(--color-border)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 2,
+            background: "var(--color-green)",
+            animation: "loadBar 1s ease infinite",
+          }} />
+        </div>
+        <style>{`
+          @keyframes loadBar {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 100%; margin-left: 0; }
+            100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
       </div>
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  // ── Empty state (no saved recipes at all — only when not searching) ────────
 
-  if (items.length === 0) {
+  if (items.length === 0 && !debouncedSearch) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
         <div className="card no-hover" style={{ padding: "48px 40px", textAlign: "center", maxWidth: 480, width: "100%" }}>
@@ -174,8 +234,79 @@ export default function SavedPage() {
         </p>
       </div>
 
+      {/* Search + sort controls */}
+      <div style={{
+        display: "flex",
+        gap: 12,
+        marginBottom: 20,
+        flexWrap: "wrap",
+      }}>
+        <div style={{ position: "relative", flex: "1 1 260px", minWidth: 200 }}>
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search saved recipes…"
+            style={{
+              width: "100%",
+              padding: "10px 14px 10px 38px",
+              borderRadius: 10,
+              border: "1.5px solid var(--color-border)",
+              background: "var(--color-surface)",
+              color: "var(--color-text)",
+              fontSize: "0.875rem",
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              outline: "none",
+            }}
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value as SortOption)}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1.5px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-text-2)",
+            fontSize: "0.875rem",
+            fontFamily: "var(--font-body), system-ui, sans-serif",
+            cursor: "pointer",
+            outline: "none",
+          }}
+        >
+          <option value="recent">Recently Saved</option>
+          <option value="oldest">Oldest First</option>
+          <option value="title">Title (A–Z)</option>
+        </select>
+      </div>
+
+      {/* No search results */}
+      {items.length === 0 && debouncedSearch && !searching && (
+        <div className="card no-hover" style={{ padding: "48px 40px", textAlign: "center" }}>
+          <p style={{ color: "var(--color-text-2)", fontSize: "0.9rem", margin: 0 }}>
+            No recipes match &lsquo;{debouncedSearch}&rsquo;
+          </p>
+        </div>
+      )}
+
       {/* Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: "16px",
+        marginTop: items.length === 0 ? 0 : "24px",
+        opacity: searching ? 0.5 : 1,
+        transition: "opacity 0.15s ease",
+      }}>
         {items.map((item) => {
           if (!item.recipe) return null;
           return (
@@ -194,7 +325,7 @@ export default function SavedPage() {
         <div style={{ display: "flex", justifyContent: "center", marginTop: 32 }}>
           <button
             type="button"
-            onClick={() => fetchSaved(page + 1, false)}
+            onClick={() => fetchSaved(page + 1, false, debouncedSearch, sort)}
             disabled={loadingMore}
             style={{
               background: "var(--color-surface)",
@@ -216,6 +347,20 @@ export default function SavedPage() {
 
       <style jsx>{`
         .no-hover:hover { transform: none !important; box-shadow: none !important; }
+        .saved-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 1024px) {
+          .saved-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+          .saved-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        }
+        @media (max-width: 420px) {
+          .saved-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   );
@@ -239,41 +384,47 @@ function SavedRecipeCard({
   const ingredients = recipe.ingredients_json ?? [];
 
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        className="recipe-card"
-        onClick={onNavigate}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onNavigate(); }}
-      >
-        {/* Top */}
-        <div className="card-top">
-          <div className="card-top-row">
-            <span className="cuisine-tag">{cuisine}</span>
-            <span className="card-emoji" aria-hidden="true">{emoji}</span>
-          </div>
+    <div
+      className="recipe-card"
+      onClick={onNavigate}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onNavigate(); }}
+    >
+      {/* Top */}
+      <div className="card-top">
+        <span className="cuisine-tag">{cuisine}</span>
+        <span className="card-emoji" aria-hidden="true">{emoji}</span>
+      </div>
+
+      {/* Bottom */}
+      <div className="card-bottom">
+        <h3 className="card-title">{recipe.title}</h3>
+
+        <p style={{
+          fontSize: "0.78rem", color: "var(--color-text-3)",
+          lineHeight: 1.5, margin: "0 0 10px",
+          minHeight: "2.34rem",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>
+          {recipe.description}
+        </p>
+
+        <div className="ingredient-pills">
+          {ingredients.slice(0, 2).map((ing, i) => (
+            <span key={i} className="ingredient-pill">{ing.name}</span>
+          ))}
         </div>
 
-        {/* Bottom */}
-        <div className="card-bottom">
-          <h3 className="card-title">{recipe.title}</h3>
-
-          {ingredients.length > 0 && (
-            <div className="ingredient-pills">
-              {ingredients.slice(0, 2).map((ing, i) => (
-                <span key={i} className="ingredient-pill">{ing.name}</span>
-              ))}
-            </div>
-          )}
-
-          <div className="card-meta">
-            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
-            <span className="meta-calories">⚡ {calories} kcal</span>
-          </div>
-
-          <div className="card-view">View recipe →</div>
+        <div className="card-meta">
+          <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+          <span className="meta-calories">⚡ {calories} kcal</span>
         </div>
+
+        <div className="card-view">View recipe →</div>
       </div>
 
       {/* Bookmark — always filled since all shown recipes are saved */}
@@ -303,6 +454,7 @@ function SavedRecipeCard({
 
       <style jsx>{`
         .recipe-card {
+          position: relative;
           background: var(--color-surface);
           border-radius: 16px;
           border: 1px solid var(--color-border);
@@ -322,19 +474,15 @@ function SavedRecipeCard({
         }
         .card-top {
           background: var(--color-green-light);
-          padding: 20px 20px 14px;
+          padding: 14px 20px;
           height: 100px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
+          position: relative;
           flex-shrink: 0;
         }
-        .card-top-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
         .cuisine-tag {
+          position: absolute;
+          top: 14px;
+          left: 20px;
           background: white;
           color: var(--color-green-dark);
           border-radius: 20px;
@@ -343,6 +491,10 @@ function SavedRecipeCard({
           font-weight: 600;
         }
         .card-emoji {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
           font-size: 2rem;
           line-height: 1;
         }
@@ -359,6 +511,7 @@ function SavedRecipeCard({
           color: var(--color-text);
           line-height: 1.3;
           margin: 0 0 10px;
+          min-height: 2.6rem;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -366,8 +519,10 @@ function SavedRecipeCard({
         }
         .ingredient-pills {
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          overflow: hidden;
           gap: 4px;
+          min-height: 22px;
           margin-bottom: 12px;
         }
         .ingredient-pill {
@@ -376,6 +531,10 @@ function SavedRecipeCard({
           border-radius: 6px;
           padding: 2px 7px;
           font-size: 0.7rem;
+          max-width: 48%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .card-meta {
           display: flex;

@@ -195,10 +195,47 @@ export default function GroceryPage() {
   // ── Loading state ────────────────────────────────────────────────────────
   if (pageLoading) {
     return (
-      <div style={{ fontFamily: "'DM Sans', 'Nunito', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
-        <div style={{ width: 40, height: 40, border: "3px solid #e8f0eb", borderTopColor: "#2C7A4B", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <p style={{ fontSize: 14, color: "#7a9a88", margin: 0 }}>Loading your grocery list…</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{
+        position: "fixed", inset: 0,
+        background: "var(--color-bg)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: 16, zIndex: 10,
+        paddingLeft: "220px",
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          alt="Nourishly"
+          width={56}
+          height={56}
+          style={{ borderRadius: 14 }}
+        />
+        <div style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 600,
+          fontSize: "1rem",
+          color: "var(--color-text-3)",
+        }}>
+          Loading…
+        </div>
+        <div style={{
+          width: 40, height: 4, borderRadius: 2,
+          background: "var(--color-border)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 2,
+            background: "var(--color-green)",
+            animation: "loadBar 1s ease infinite",
+          }} />
+        </div>
+        <style>{`
+          @keyframes loadBar {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 100%; margin-left: 0; }
+            100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
       </div>
     );
   }

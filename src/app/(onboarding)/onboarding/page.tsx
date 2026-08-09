@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { calculateNutritionTargets } from '@/lib/nutrition'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,8 @@ export default function OnboardingPage() {
   const [dailyFat, setDailyFat] = useState(65)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dietaryNotes, setDietaryNotes] = useState('')
+  const [cuisineNotes, setCuisineNotes] = useState('')
 
   // Body metrics state
   const [age, setAge] = useState('')
@@ -208,26 +211,18 @@ export default function OnboardingPage() {
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   function calculateTargets() {
-    const ageNum = parseInt(age)
-    const weightNum = parseFloat(weight)
-    const heightNum = parseFloat(height)
+    const targets = calculateNutritionTargets({
+      weight_kg: parseFloat(weight),
+      height_cm: parseFloat(height),
+      age: parseInt(age),
+      sex,
+      health_goal: selectedGoal,
+    })
 
-    // Mifflin-St Jeor uses a male/female offset; default to the female offset
-    // (the more conservative estimate) when the user prefers not to say.
-    const bmr = sex === 'male'
-      ? 10 * weightNum + 6.25 * heightNum - 5 * ageNum + 5
-      : 10 * weightNum + 6.25 * heightNum - 5 * ageNum - 161
-
-    const tdee = bmr * 1.375
-
-    let calories = tdee
-    if (selectedGoal === 'weight-loss') calories = tdee - 500
-    else if (selectedGoal === 'muscle-gain') calories = tdee + 300
-
-    setDailyCalories(Math.round(calories))
-    setDailyProtein(Math.round((calories * 0.25) / 4))
-    setDailyCarbs(Math.round((calories * 0.45) / 4))
-    setDailyFat(Math.round((calories * 0.30) / 9))
+    setDailyCalories(targets.daily_calories)
+    setDailyProtein(targets.daily_protein_g)
+    setDailyCarbs(targets.daily_carbs_g)
+    setDailyFat(targets.daily_fat_g)
     setCalculating(true)
   }
 
@@ -241,7 +236,9 @@ export default function OnboardingPage() {
       body: JSON.stringify({
         health_goal: selectedGoal,
         dietary_restrictions: selectedDiet,
+        dietary_notes: dietaryNotes,
         cuisine_preferences: selectedCuisines,
+        cuisine_notes: cuisineNotes,
         daily_calories: dailyCalories,
         daily_protein_g: dailyProtein,
         daily_carbs_g: dailyCarbs,
@@ -295,14 +292,10 @@ export default function OnboardingPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-16 flex flex-col items-center">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-16 flex flex-col items-center">
             {/* Logo */}
             <div style={{ marginBottom: 24 }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" fill="#4A7C59" />
-                <path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                <path d="M12 8v8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <img src="/icons/icon-192.png" alt="Nourishly" width={48} height={48} style={{ borderRadius: 12, display: "block" }} />
             </div>
             {/* Message */}
             <p style={{
@@ -340,9 +333,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">What is your health goal?</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">What is your health goal?</h1>
               <p className="text-gray-500 text-base">Help us personalise your nutrition plan</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
@@ -394,9 +387,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Select your dietary restrictions</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Select your dietary restrictions</h1>
               <p className="text-gray-500 text-base">We&apos;ll make sure your recipes match your preferences</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
@@ -422,6 +415,18 @@ export default function OnboardingPage() {
                 )
               })}
             </div>
+              <div className="mb-6">
+              <label className="text-sm font-semibold text-gray-700 block mb-2">
+                Anything else? <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={dietaryNotes}
+                onChange={e => setDietaryNotes(e.target.value)}
+                placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar, I only eat organic..."
+                rows={3}
+                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150 resize-none"
+              />
+            </div>
             <div className="flex justify-between items-center">
               {backButton(1)}
               {selectedDiet.length === 0 ? (
@@ -446,9 +451,9 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {stepLabel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Choose your favourite cuisines</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Choose your favourite cuisines</h1>
             <p className="text-gray-500 text-base">Select all that apply — we&apos;ll find the best recipes for you</p>
           </div>
           <div className="flex flex-wrap gap-3 mb-10">
@@ -465,6 +470,18 @@ export default function OnboardingPage() {
                 </button>
               )
             })}
+          </div>
+          <div className="mb-6">
+            <label className="text-sm font-semibold text-gray-700 block mb-2">
+              Any other cuisine preferences? <span className="font-normal text-gray-400">(optional)</span>
+            </label>
+            <textarea
+              value={cuisineNotes}
+              onChange={e => setCuisineNotes(e.target.value)}
+              placeholder="e.g. I love spicy food, I prefer street food style, no fusion cuisine..."
+              rows={3}
+              className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-[#2C7A4B] transition-colors duration-150 resize-none"
+            />
           </div>
           <div className="flex justify-between">
             {backButton(2)}
@@ -491,9 +508,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl">
           {stepLabel}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
             <div className="text-center mb-10">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Tell us about yourself</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Tell us about yourself</h1>
               <p className="text-gray-500 text-base">We&apos;ll use this to calculate your personalised nutrition targets</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
@@ -573,9 +590,9 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {stepLabel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-8 py-10">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 sm:px-8 py-8 sm:py-10">
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Your personalised nutrition targets</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Your personalised nutrition targets</h1>
             <p className="text-gray-500 text-base">Calculated based on your profile — adjust if needed</p>
           </div>
           <div style={{ background: 'var(--color-green-light)', color: 'var(--color-green-dark)', borderRadius: 8, padding: '10px 14px', fontSize: '0.85rem', fontWeight: 500, marginBottom: 20 }}>

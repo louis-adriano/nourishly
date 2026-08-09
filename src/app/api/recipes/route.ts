@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import groq from '@/lib/claude/client'
+import { normaliseIngredientsToMetric, convertFahrenheitInText } from '@/lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     // 2. Profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('health_goal, dietary_restrictions, cuisine_preferences')
+      .select('health_goal, dietary_restrictions, cuisine_preferences, dietary_notes, cuisine_notes')
       .eq('user_id', user.id)
       .single()
 
@@ -127,12 +128,15 @@ export async function POST(request: Request) {
       Array.isArray(profile.cuisine_preferences) && profile.cuisine_preferences.length > 0
         ? profile.cuisine_preferences.join(', ')
         : 'Any'
+    
+    const dietaryNotes = (profile as Record<string, unknown>).dietary_notes as string | null
+    const cuisineNotes = (profile as Record<string, unknown>).cuisine_notes as string | null
 
     const prompt = `You are a professional chef and nutritionist with deep knowledge of authentic cuisines. Generate exactly 4 personalised recipes based on this profile:
 
 Health goal: ${profile.health_goal}
-Dietary restrictions: ${restrictions}
-Cuisine preferences: ${cuisines}
+Dietary restrictions: ${restrictions}${dietaryNotes ? `\nAdditional dietary notes (STRICTLY follow these): ${dietaryNotes}` : ''}
+Cuisine preferences: ${cuisines}${cuisineNotes ? `\nAdditional cuisine notes (STRICTLY follow these): ${cuisineNotes}` : ''}
 
 ${filterNote}
 ${varietyHint}
@@ -155,6 +159,8 @@ Each object must have these exact fields:
 - ingredients: array of objects with { name: string, quantity: string, unit: string }
 - steps: array of objects with { step_number: number, instruction: string }
 - nutrition: object with { calories: number, protein_g: number, carbs_g: number, fat_g: number }
+
+All ingredient quantities MUST use metric units only: grams (g) or kilograms (kg) for solids, millilitres (ml) or litres (L) for liquids, or count (e.g. "2 cloves", "1 onion") for whole items. NEVER use cups, oz, lb, tsp/tbsp-as-imperial, or °F. If a temperature is mentioned in a step, use °C.
 
 Do not include any text before or after the JSON array.`
 
@@ -216,13 +222,17 @@ Do not include any text before or after the JSON array.`
       )
     }
 
-    // 7. Save to Supabase
+    // 7. Save to Supabase (normalise any leftover imperial units to metric first)
     const rows = valid.map(recipe => ({
       user_id: user.id,
       title: recipe.title,
+      description: recipe.description,
       cuisine: recipe.cuisine ?? null,
-      ingredients_json: recipe.ingredients,
-      steps_json: recipe.steps,
+      ingredients_json: normaliseIngredientsToMetric(recipe.ingredients),
+      steps_json: recipe.steps.map(step => ({
+        ...step,
+        instruction: convertFahrenheitInText(step.instruction),
+      })),
       cook_time_mins: recipe.cook_time_mins,
       nutrition_json: recipe.nutrition,
     }))
@@ -231,7 +241,7 @@ Do not include any text before or after the JSON array.`
     const { data: saved, error: saveError } = await supabase
       .from('recipes')
       .insert(rows)
-      .select('recipe_id, title, cook_time_mins, ingredients_json, steps_json, nutrition_json')
+      .select('recipe_id, title, description, cook_time_mins, ingredients_json, steps_json, nutrition_json')
 
     console.log('[recipes] Supabase insert result — data:', saved, 'error:', {
       message: saveError?.message,
@@ -247,11 +257,11 @@ Do not include any text before or after the JSON array.`
       )
     }
 
-    // 8. Return saved recipes with their database ids, merging description from valid[]
+    // 8. Return saved recipes with their database ids
     const recipes = saved.map((row, i) => ({
       id: row.recipe_id,
       title: row.title,
-      description: valid[i].description,
+      description: row.description,
       cuisine: valid[i].cuisine ?? null,
       cook_time_mins: row.cook_time_mins,
       ingredients: row.ingredients_json,

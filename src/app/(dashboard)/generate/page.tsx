@@ -136,6 +136,8 @@ export default function GeneratePage() {
   const [modalCuisine, setModalCuisine] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [dietaryNotes, setDietaryNotes] = useState("");
+  const [cuisineNotes, setCuisineNotes] = useState("");
 
   async function openPrefs() {
     setPrefsOpen(true);
@@ -147,7 +149,7 @@ export default function GeneratePage() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("health_goal, dietary_restrictions, cuisine_preferences")
+        .select("health_goal, dietary_restrictions, cuisine_preferences, dietary_notes, cuisine_notes")
         .eq("user_id", user.id)
         .single();
       if (data) {
@@ -176,6 +178,8 @@ export default function GeneratePage() {
         const normalizedCuisine = (data.cuisine_preferences ?? [])
           .map((c: string) => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase());
         setModalCuisine(normalizedCuisine);
+        setDietaryNotes(data.dietary_notes ?? "");
+        setCuisineNotes(data.cuisine_notes ?? "");
       }
     } finally {
       setLoadingPrefs(false);
@@ -199,7 +203,9 @@ export default function GeneratePage() {
         body: JSON.stringify({
           health_goal: modalGoal,
           dietary_restrictions: modalDiet,
+          dietary_notes: dietaryNotes,
           cuisine_preferences: modalCuisine,
+          cuisine_notes: cuisineNotes,
         }),
       });
       setSaveSuccess(true);
@@ -261,7 +267,7 @@ export default function GeneratePage() {
       </div>
 
       {/* ── Action row ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", marginTop: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "24px", marginTop: "16px" }}>
         <button
           type="button"
           onClick={openPrefs}
@@ -427,6 +433,30 @@ export default function GeneratePage() {
                   </div>
                 </div>
 
+                 <div style={{ marginBottom: "16px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+                    Anything else? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={dietaryNotes}
+                    onChange={e => setDietaryNotes(e.target.value)}
+                    placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar..."
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      borderRadius: "10px",
+                      border: "1.5px solid var(--color-border)",
+                      padding: "10px 14px",
+                      fontSize: "0.82rem",
+                      color: "var(--color-text)",
+                      fontFamily: "var(--font-body), system-ui, sans-serif",
+                      resize: "none",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
                 {/* Cuisine Preferences */}
                 <div style={{ marginBottom: "28px" }}>
                   <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
@@ -437,6 +467,30 @@ export default function GeneratePage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                 <div style={{ marginBottom: "20px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+                    Any other cuisine notes? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={cuisineNotes}
+                    onChange={e => setCuisineNotes(e.target.value)}
+                    placeholder="e.g. I love spicy food, no fusion cuisine, street food style..."
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      borderRadius: "10px",
+                      border: "1.5px solid var(--color-border)",
+                      padding: "10px 14px",
+                      fontSize: "0.82rem",
+                      color: "var(--color-text)",
+                      fontFamily: "var(--font-body), system-ui, sans-serif",
+                      resize: "none",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
                 </div>
 
                 {/* Save */}
@@ -506,11 +560,7 @@ function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; sa
 
   return (
     <div className="grid-wrapper">
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "16px",
-      }}>
+      <div className="recipe-grid">
         {recipes.map((recipe, i) => (
           <RecipeCard
             key={recipe.id}
@@ -531,6 +581,20 @@ function RecipeGrid({ recipes, savedIds, onToggleSave }: { recipes: Recipe[]; sa
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        .recipe-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 1024px) {
+          .recipe-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 700px) {
+          .recipe-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        }
+        @media (max-width: 480px) {
+          .recipe-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>
@@ -556,77 +620,63 @@ function RecipeCard({
   const cuisine = getRecipeCuisine(recipe);
 
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        className="recipe-card"
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
-        style={{ animationDelay: `${index * 0.08}s` }}
-      >
-        {/* Top section */}
-        <div className="card-top">
-          <div className="card-top-row">
-            <span className="cuisine-tag">{cuisine}</span>
-            <span className="card-emoji" aria-hidden="true">{emoji}</span>
-          </div>
-        </div>
-
-        {/* Bottom section */}
-        <div className="card-bottom">
-          <h3 className="card-title">{recipe.title}</h3>
-          <p className="card-description">{recipe.description}</p>
-
-          {recipe.ingredients && recipe.ingredients.length > 0 && (
-            <div className="ingredient-pills">
-              {recipe.ingredients.slice(0, 2).map((ing, i) => (
-                <span key={i} className="ingredient-pill">
-                  {typeof ing === "string" ? ing : ing.name}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="card-meta">
-            <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
-            <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
-          </div>
-
-          <div className="card-view">View recipe →</div>
-        </div>
+    <div
+      className="recipe-card"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      style={{ animationDelay: `${index * 0.08}s` }}
+    >
+      {/* Top section */}
+      <div className="card-top">
+        <span className="cuisine-tag">{cuisine}</span>
+        <span className="card-emoji" aria-hidden="true">{emoji}</span>
       </div>
 
-      {/* Bookmark button */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
-        aria-label={isSaved ? "Unsave recipe" : "Save recipe"}
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 12,
-          background: isSaved ? "var(--color-green-light)" : "white",
-          border: `1.5px solid ${isSaved ? "var(--color-green)" : "var(--color-border)"}`,
-          borderRadius: 8,
-          padding: 6,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1,
-        }}
-      >
-        {isSaved ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-green)" stroke="var(--color-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-          </svg>
-        )}
-      </button>
+      {/* Bottom section */}
+      <div className="card-bottom">
+        <h3 className="card-title">{recipe.title}</h3>
+        <p className="card-description">{recipe.description}</p>
+
+        <div className="ingredient-pills">
+          {recipe.ingredients?.slice(0, 2).map((ing, i) => (
+            <span key={i} className="ingredient-pill">
+              {typeof ing === "string" ? ing : ing.name}
+            </span>
+          ))}
+        </div>
+
+        <div className="card-meta">
+          <span className="meta-time">⏱️ {recipe.cook_time_mins} min</span>
+          <span className="meta-calories">⚡ {recipe.nutrition.calories} kcal</span>
+        </div>
+
+        <div className="card-view">View recipe →</div>
+
+        <button
+          type="button"
+          className="save-btn"
+          onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+          aria-label={isSaved ? "Unsave recipe" : "Save recipe"}
+          style={{
+            background: isSaved ? "var(--color-green-light)" : "var(--color-green)",
+            color: isSaved ? "var(--color-green-dark)" : "white",
+            border: isSaved ? "1.5px solid var(--color-green)" : "none",
+          }}
+        >
+          {isSaved ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+          )}
+          {isSaved ? "Saved" : "Save Recipe"}
+        </button>
+      </div>
 
       <style jsx>{`
         .recipe-card {
@@ -659,19 +709,15 @@ function RecipeCard({
         /* Top section */
         .card-top {
           background: var(--color-green-light);
-          padding: 20px 20px 14px;
+          padding: 14px 20px;
           height: 100px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
+          position: relative;
           flex-shrink: 0;
         }
-        .card-top-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
         .cuisine-tag {
+          position: absolute;
+          top: 14px;
+          left: 20px;
           background: white;
           color: var(--color-green-dark);
           border-radius: 20px;
@@ -680,8 +726,29 @@ function RecipeCard({
           font-weight: 600;
         }
         .card-emoji {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
           font-size: 2rem;
           line-height: 1;
+        }
+
+        @media (max-width: 700px) {
+          .card-top {
+            height: 120px;
+          }
+          .card-emoji {
+            font-size: 2.5rem;
+          }
+        }
+        @media (max-width: 480px) {
+          .card-top {
+            height: 150px;
+          }
+          .card-emoji {
+            font-size: 3.25rem;
+          }
         }
 
         /* Bottom section */
@@ -698,6 +765,7 @@ function RecipeCard({
           color: var(--color-text);
           line-height: 1.3;
           margin: 0 0 6px;
+          min-height: 2.34rem;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -708,6 +776,7 @@ function RecipeCard({
           color: var(--color-text-3);
           line-height: 1.5;
           margin: 0 0 10px;
+          min-height: 2.34rem;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -715,8 +784,10 @@ function RecipeCard({
         }
         .ingredient-pills {
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          overflow: hidden;
           gap: 4px;
+          min-height: 22px;
           margin-bottom: 12px;
         }
         .ingredient-pill {
@@ -725,6 +796,10 @@ function RecipeCard({
           border-radius: 6px;
           padding: 2px 7px;
           font-size: 0.7rem;
+          max-width: 48%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .card-meta {
           display: flex;
@@ -749,6 +824,21 @@ function RecipeCard({
           color: var(--color-green);
           border-top: 1px solid var(--color-border);
           padding-top: 10px;
+        }
+        .save-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 10px;
+          width: 100%;
+          padding: 9px;
+          border-radius: 8px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: var(--font-body), system-ui, sans-serif;
+          transition: all 0.15s ease;
         }
       `}</style>
     </div>
@@ -926,7 +1016,7 @@ function LoadingState() {
         </div>
       </div>
       <h2 className="loading-title">Cooking up your recipes…</h2>
-      <p className="loading-sub">Claude is thinking. This usually takes a few seconds.</p>
+      <p className="loading-sub">Nourishly is thinking… this usually takes a few seconds.</p>
       <div className="loading-steps" role="list">
         {steps.map((step, i) => (
           <div key={step} className="loading-step" role="listitem" style={{ animationDelay: `${i * 0.6}s` }}>

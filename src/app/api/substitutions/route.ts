@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import groq from '@/lib/claude/client'
 import { createClient } from '@/lib/supabase/server'
+import { normaliseUnitsInFreeText } from '@/lib/units'
 
 const SUBSTITUTION_LIMIT = 10
 
@@ -68,6 +69,8 @@ ${JSON.stringify(recipe, null, 2)}
 
 User request: ${userMessage}
 
+All ingredient quantities in your response MUST use metric units only: grams (g) or kilograms (kg) for solids, millilitres (ml) or litres (L) for liquids, or count (e.g. "2 cloves", "1 onion") for whole items. NEVER use cups, oz, lb, tsp/tbsp-as-imperial, or °F. If a temperature is mentioned, use °C.
+
 Respond with a JSON object only (no markdown, no extra text) in this exact format:
 {
   "substitute": "the substitute ingredient name",
@@ -95,13 +98,37 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
       )
     }
 
-    void supabase.from('substitutions').insert({
+    // Safety net: normalise any leftover imperial units the model returned
+    if (typeof parsed.substitute === 'string') {
+      parsed.substitute = normaliseUnitsInFreeText(parsed.substitute)
+    }
+    if (typeof parsed.explanation === 'string') {
+      parsed.explanation = normaliseUnitsInFreeText(parsed.explanation)
+    }
+
+    const { error: substitutionInsertError } = await supabase.from('substitutions').insert({
       user_id: user.id,
-      recipe_id: body.recipe_id,
+      recipe_id: recipe.id,
       original_ingredient: body.ingredient ?? 'unknown',
       substitute: parsed.substitute ?? '',
       explanation: parsed.explanation ?? '',
     })
+    if (substitutionInsertError) {
+      console.error('[substitutions] substitutions insert error:', substitutionInsertError)
+    }
+
+    const { error: chatInsertError } = await supabase.from('recipe_chat_messages').insert([
+      { user_id: user.id, recipe_id: recipe.id, role: 'user', content: userMessage },
+      {
+        user_id: user.id,
+        recipe_id: recipe.id,
+        role: 'ai',
+        content: parsed.explanation ?? 'Here is a suggested substitute.',
+      },
+    ])
+    if (chatInsertError) {
+      console.error('[substitutions] recipe_chat_messages insert error:', chatInsertError)
+    }
 
     // ── Return response with updated usage metadata ─────────────────────────
     const newCount = currentCount + 1
@@ -155,11 +182,23 @@ export async function GET(request: Request) {
 
     const currentCount = count ?? 0
 
+    const { data: history, error: historyError } = await supabase
+      .from('recipe_chat_messages')
+      .select('role, content, created_at')
+      .eq('user_id', user.id)
+      .eq('recipe_id', recipe_id)
+      .order('created_at', { ascending: true })
+
+    if (historyError) {
+      console.error('[substitutions] GET history query error:', historyError)
+    }
+
     return NextResponse.json({
       count: currentCount,
       limit: SUBSTITUTION_LIMIT,
       remaining: SUBSTITUTION_LIMIT - currentCount,
       limitReached: currentCount >= SUBSTITUTION_LIMIT,
+      messages: history ?? [],
     })
   } catch (error) {
     console.error('[substitutions] GET unexpected error:', error)

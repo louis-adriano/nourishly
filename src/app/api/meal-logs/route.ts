@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// The client passes its own local calendar date (logged_date / ?date=) so the
+// "today" boundary matches the user's midnight, not the server's UTC midnight.
+function isValidDate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
 // ─── POST /api/meal-logs ───────────────────────────────────────────────────────
 // Saves a recipe's nutrition to meal_logs for today's date.
 // Returns 409 if the same recipe has already been logged today.
@@ -20,7 +26,7 @@ export async function POST(request: Request) {
 
     // ── Validate request body ─────────────────────────────────────────────────
     const body = await request.json()
-    const { recipe_id, calories, protein_g, carbs_g, fat_g } = body
+    const { recipe_id, calories, protein_g, carbs_g, fat_g, logged_date } = body
 
     if (!recipe_id || calories == null || protein_g == null || carbs_g == null || fat_g == null) {
       return NextResponse.json(
@@ -30,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     // ── Build today's date (YYYY-MM-DD) ───────────────────────────────────────
-    const today = new Date().toISOString().split('T')[0]
+    const today = isValidDate(logged_date) ? logged_date : new Date().toISOString().split('T')[0]
 
     // ── Check for duplicate log today ─────────────────────────────────────────
     const { data: existing, error: checkError } = await supabase
@@ -91,7 +97,7 @@ export async function POST(request: Request) {
 // ─── GET /api/meal-logs ────────────────────────────────────────────────────────
 // Returns today's meal logs for the logged-in user.
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
 
@@ -103,7 +109,9 @@ export async function GET() {
       )
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const { searchParams } = new URL(request.url)
+    const dateParam = searchParams.get('date')
+    const today = isValidDate(dateParam) ? dateParam : new Date().toISOString().split('T')[0]
 
     const { data, error } = await supabase
       .from('meal_logs')

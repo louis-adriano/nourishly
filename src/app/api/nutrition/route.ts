@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+// The client passes its own local calendar date (?date=YYYY-MM-DD) so the
+// "today" boundary matches the user's midnight, not the server's UTC midnight.
+function isValidDate(value: string | null): value is string {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
 
@@ -10,7 +16,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const { searchParams } = new URL(request.url)
+    const dateParam = searchParams.get('date')
+    const today = isValidDate(dateParam) ? dateParam : new Date().toISOString().split('T')[0]
 
     const { data: logs, error: logsError } = await supabase
       .from('meal_logs')

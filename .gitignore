@@ -13,6 +13,10 @@
 /.next/
 /out/
 
+# next-pwa generated files (build artifacts, regenerated on each deploy)
+/public/sw.js
+/public/workbox-*.js
+
 # production
 /build
 

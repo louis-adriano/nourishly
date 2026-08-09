@@ -14,8 +14,8 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { health_goal, dietary_restrictions, cuisine_preferences, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g } = body
-  console.log('[onboarding] body ->', { health_goal, dietary_restrictions, cuisine_preferences, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g })
+  const { health_goal, dietary_restrictions, dietary_notes, cuisine_preferences, cuisine_notes, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, age, weight_kg, height_cm, sex } = body
+  console.log('[onboarding] body ->', { health_goal, dietary_restrictions, cuisine_preferences, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, age, weight_kg, height_cm, sex })
 
   if (!health_goal) {
     return NextResponse.json({ error: 'Health goal is required' }, { status: 400 })
@@ -25,11 +25,17 @@ export async function POST(request: Request) {
     user_id: user.id,
     health_goal,
     dietary_restrictions: dietary_restrictions ?? [],
+    dietary_notes: dietary_notes ?? null,
     cuisine_preferences: cuisine_preferences ?? [],
+    cuisine_notes: cuisine_notes ?? null,
     daily_calories: typeof daily_calories === 'number' ? daily_calories : 2000,
     daily_protein_g: typeof daily_protein_g === 'number' ? daily_protein_g : 150,
     daily_carbs_g: typeof daily_carbs_g === 'number' ? daily_carbs_g : 200,
     daily_fat_g: typeof daily_fat_g === 'number' ? daily_fat_g : 65,
+    ...(typeof age === 'number' && !Number.isNaN(age) ? { age } : {}),
+    ...(typeof weight_kg === 'number' && !Number.isNaN(weight_kg) ? { weight_kg } : {}),
+    ...(typeof height_cm === 'number' && !Number.isNaN(height_cm) ? { height_cm } : {}),
+    ...(sex ? { sex } : {}),
     onboarding_done: true,
   }
   console.log('[onboarding] upserting payload ->', payload)
