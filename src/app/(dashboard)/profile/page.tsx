@@ -84,20 +84,13 @@ const disabledInputStyle = {
   wordBreak: "break-word" as const,
 };
 
+// Only the state-dependent bits stay inline — base styling (incl. the
+// hover-only darkening) lives in the `.save-btn` class so :hover can win
+// against the cascade instead of losing to an inline `background`.
 const saveButtonStyle = (saveSuccess: boolean, disabled: boolean) => ({
-  width: "100%",
-  minHeight: 44,
-  padding: "14px",
-  borderRadius: 12,
-  border: "none",
-  background: saveSuccess ? "var(--color-green-dark)" : "var(--color-green)",
-  color: "white",
-  fontSize: "0.95rem",
-  fontWeight: 700,
   cursor: disabled ? "not-allowed" : "pointer",
   opacity: disabled ? 0.7 : 1,
-  fontFamily: "var(--font-body), system-ui, sans-serif",
-  transition: "all 0.2s ease",
+  ...(saveSuccess ? { background: "var(--color-green-dark)" } : {}),
 });
 
 type Tab = "profile" | "health";
@@ -421,6 +414,12 @@ export default function ProfilePage() {
           background: var(--color-green);
           color: white;
         }
+        @media (hover: hover) {
+          .tab-btn:not(.active):hover {
+            background-color: var(--color-green-light);
+            color: var(--color-green-dark);
+          }
+        }
         .mobile-logout-wrap {
           display: none;
         }
@@ -507,12 +506,31 @@ function ProfileTab({
         type="button"
         onClick={onSave}
         disabled={saving || !formValid}
+        className="save-btn"
         style={saveButtonStyle(saveSuccess, saving || !formValid)}
       >
         {saveSuccess ? "Saved ✓" : saving ? "Saving…" : "Save Changes"}
       </button>
 
       <style jsx>{`
+        .save-btn {
+          width: 100%;
+          min-height: 44px;
+          padding: 14px;
+          border-radius: 12px;
+          border: none;
+          background: var(--color-green);
+          color: white;
+          font-size: 0.95rem;
+          font-weight: 700;
+          font-family: var(--font-body), system-ui, sans-serif;
+          transition: all 0.2s ease;
+        }
+        @media (hover: hover) {
+          .save-btn:not(:disabled):hover {
+            background-color: var(--color-green-dark);
+          }
+        }
         .card.profile-tab {
           padding: 28px 32px;
           box-sizing: border-box;
@@ -636,12 +654,31 @@ function HealthTab({
         type="button"
         onClick={onSave}
         disabled={saving || !formValid}
+        className="save-btn"
         style={saveButtonStyle(saveSuccess, saving || !formValid)}
       >
         {saveSuccess ? "Saved ✓" : saving ? "Saving…" : "Save Changes"}
       </button>
 
       <style jsx>{`
+        .save-btn {
+          width: 100%;
+          min-height: 44px;
+          padding: 14px;
+          border-radius: 12px;
+          border: none;
+          background: var(--color-green);
+          color: white;
+          font-size: 0.95rem;
+          font-weight: 700;
+          font-family: var(--font-body), system-ui, sans-serif;
+          transition: all 0.2s ease;
+        }
+        @media (hover: hover) {
+          .save-btn:not(:disabled):hover {
+            background-color: var(--color-green-dark);
+          }
+        }
         .card.health-tab {
           padding: 28px 32px;
           box-sizing: border-box;
