@@ -87,13 +87,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="mobile-topbar">
-        <Link href="/dashboard" className="mobile-topbar-logo">
-          <img src="/icons/icon-192.png" alt="Nourishly" width={26} height={26} style={{ borderRadius: 6, display: "block" }} />
-        </Link>
-      </div>
-
       {/* Mobile bottom tab bar */}
       <nav className="mobile-tabbar" aria-label="Primary">
         {TAB_BAR_LINKS.map(({ href, label, icon }) => {
@@ -299,38 +292,11 @@ export default function Sidebar() {
           color: var(--color-danger);
         }
 
-        .mobile-topbar {
-          display: none;
-        }
-
         .mobile-tabbar {
           display: none;
         }
 
         @media (max-width: 767px) {
-          .mobile-topbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-            z-index: 60;
-          }
-
-          .mobile-topbar-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-          }
-
           :global(.sidebar) {
             display: none !important;
           }
@@ -340,21 +306,26 @@ export default function Sidebar() {
             align-items: stretch;
             justify-content: space-around;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 58px;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
+            left: 16px;
+            right: 16px;
+            /* Floats above the home indicator instead of sitting on it — the
+               bar's own height is fixed (no longer needs the old
+               padding-bottom safe-area hack), so this is safe with
+               box-sizing: border-box. */
+            bottom: max(16px, env(safe-area-inset-bottom, 0px));
+            height: 64px;
+            border-radius: 999px;
             background: rgba(255, 255, 255, 0.75);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
             z-index: 60;
           }
 
           .tabbar-item {
             flex: 1;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -366,11 +337,16 @@ export default function Sidebar() {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
             color: var(--color-text-3);
             transition: background 0.15s ease, color 0.15s ease;
+          }
+
+          .tabbar-icon :global(svg) {
+            width: 26px;
+            height: 26px;
           }
 
           .tabbar-item--active .tabbar-icon {

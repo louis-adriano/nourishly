@@ -412,7 +412,7 @@ export default function RecipeDetailPage() {
         <style jsx>{`
           @media (max-width: 767px) {
             .recipe-loading {
-              min-height: calc(100vh - 162px - env(safe-area-inset-bottom, 0px));
+              min-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom, 0px)) - 64px - 24px);
             }
           }
         `}</style>

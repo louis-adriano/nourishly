@@ -174,8 +174,8 @@ export default function SavedPage() {
           @media (max-width: 767px) {
             .loading-overlay {
               padding-left: 0;
-              top: 56px;
-              bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+              top: max(16px, env(safe-area-inset-top));
+              bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 64px);
             }
           }
         `}</style>
