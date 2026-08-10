@@ -434,10 +434,17 @@ export default function RecipeDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
+      <div className="recipe-loading" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
         <div style={{ width: 40, height: 40, border: "3px solid var(--color-border)", borderTopColor: "var(--color-green)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <p style={{ fontSize: "0.875rem", color: "var(--color-text-3)", margin: 0, fontFamily: "var(--font-body), system-ui, sans-serif" }}>Loading recipe…</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style jsx>{`
+          @media (max-width: 767px) {
+            .recipe-loading {
+              min-height: calc(100vh - 162px - env(safe-area-inset-bottom, 0px));
+            }
+          }
+        `}</style>
       </div>
     );
   }

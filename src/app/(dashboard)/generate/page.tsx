@@ -245,7 +245,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 64px)" }}>
+    <div className="generate-page" style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 64px)" }}>
 
       {/* ── Header card ── */}
       <div className="card header-card">
@@ -547,6 +547,11 @@ export default function GeneratePage() {
           font-size: 0.85rem;
           color: var(--color-text-3);
           margin: 0;
+        }
+        @media (max-width: 767px) {
+          .generate-page {
+            min-height: calc(100vh - 162px - env(safe-area-inset-bottom, 0px));
+          }
         }
       `}</style>
     </div>

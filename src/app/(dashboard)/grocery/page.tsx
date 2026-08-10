@@ -195,14 +195,7 @@ export default function GroceryPage() {
   // ── Loading state ────────────────────────────────────────────────────────
   if (pageLoading) {
     return (
-      <div style={{
-        position: "fixed", inset: 0,
-        background: "var(--color-bg)",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        gap: 16, zIndex: 10,
-        paddingLeft: "220px",
-      }}>
+      <div className="loading-overlay">
         <img
           src="/icons/icon-192.png"
           alt="Nourishly"
@@ -234,6 +227,27 @@ export default function GroceryPage() {
             0% { width: 0%; margin-left: 0; }
             50% { width: 100%; margin-left: 0; }
             100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
+        <style jsx>{`
+          .loading-overlay {
+            position: fixed;
+            inset: 0;
+            padding-left: 220px;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 10;
+          }
+          @media (max-width: 767px) {
+            .loading-overlay {
+              padding-left: 0;
+              top: 56px;
+              bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+            }
           }
         `}</style>
       </div>

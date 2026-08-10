@@ -275,16 +275,7 @@ export default function DashboardPage() {
   return (
     <>
       {isLoading && (
-        <div style={{
-          position: "fixed", inset: 0,
-          paddingLeft: "220px",
-          background: "var(--color-bg)",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          gap: 16, zIndex: 10,
-          animation: "fadeOut 0.3s ease forwards",
-          animationDelay: "0.5s",
-        }}>
+        <div className="loading-overlay" style={{ animation: "fadeOut 0.3s ease forwards", animationDelay: "0.5s" }}>
           <img
             src="/icons/icon-192.png"
             alt="Nourishly"
@@ -892,6 +883,25 @@ export default function DashboardPage() {
       )}
 
       <style jsx>{`
+        .loading-overlay {
+          position: fixed;
+          inset: 0;
+          padding-left: 220px;
+          background: var(--color-bg);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          z-index: 10;
+        }
+        @media (max-width: 767px) {
+          .loading-overlay {
+            padding-left: 0;
+            top: 56px;
+            bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+          }
+        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
