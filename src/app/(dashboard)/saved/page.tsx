@@ -124,14 +124,7 @@ export default function SavedPage() {
 
   if (initialLoading) {
     return (
-      <div style={{
-        position: "fixed", inset: 0,
-        background: "var(--color-bg)",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        gap: 16, zIndex: 10,
-        paddingLeft: "220px",
-      }}>
+      <div className="loading-overlay">
         <img
           src="/icons/icon-192.png"
           alt="Nourishly"
@@ -163,6 +156,27 @@ export default function SavedPage() {
             0% { width: 0%; margin-left: 0; }
             50% { width: 100%; margin-left: 0; }
             100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
+        <style jsx>{`
+          .loading-overlay {
+            position: fixed;
+            inset: 0;
+            padding-left: 220px;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 10;
+          }
+          @media (max-width: 767px) {
+            .loading-overlay {
+              padding-left: 0;
+              top: 56px;
+              bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+            }
           }
         `}</style>
       </div>
@@ -299,10 +313,7 @@ export default function SavedPage() {
       )}
 
       {/* Grid */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "16px",
+      <div className="saved-grid" style={{
         marginTop: items.length === 0 ? 0 : "24px",
         opacity: searching ? 0.5 : 1,
         transition: "opacity 0.15s ease",
@@ -352,14 +363,11 @@ export default function SavedPage() {
           grid-template-columns: repeat(4, 1fr);
           gap: 16px;
         }
-        @media (max-width: 1024px) {
-          .saved-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 700px) {
-          .saved-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        }
-        @media (max-width: 420px) {
-          .saved-grid { grid-template-columns: 1fr; }
+        @media (max-width: 767px) {
+          .saved-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
         }
       `}</style>
     </div>
@@ -401,17 +409,7 @@ function SavedRecipeCard({
       <div className="card-bottom">
         <h3 className="card-title">{recipe.title}</h3>
 
-        <p style={{
-          fontSize: "0.78rem", color: "var(--color-text-3)",
-          lineHeight: 1.5, margin: "0 0 10px",
-          minHeight: "2.34rem",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}>
-          {recipe.description}
-        </p>
+        <p className="card-description">{recipe.description}</p>
 
         <div className="ingredient-pills">
           {ingredients.slice(0, 2).map((ing, i) => (
@@ -517,6 +515,17 @@ function SavedRecipeCard({
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
+        .card-description {
+          font-size: 0.78rem;
+          color: var(--color-text-3);
+          line-height: 1.5;
+          margin: 0 0 10px;
+          min-height: 2.34rem;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
         .ingredient-pills {
           display: flex;
           flex-wrap: nowrap;
@@ -559,6 +568,25 @@ function SavedRecipeCard({
           color: var(--color-green);
           border-top: 1px solid var(--color-border);
           padding-top: 10px;
+        }
+
+        @media (max-width: 767px) {
+          .card-top {
+            height: 150px;
+          }
+          .card-emoji {
+            font-size: 3.25rem;
+          }
+          .card-title {
+            -webkit-line-clamp: unset;
+            min-height: 0;
+            overflow: visible;
+          }
+          .card-description {
+            -webkit-line-clamp: unset;
+            min-height: 0;
+            overflow: visible;
+          }
         }
       `}</style>
     </div>

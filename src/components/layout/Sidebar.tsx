@@ -11,10 +11,8 @@ const NAV_LINKS = [
     label: "Dashboard",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" />
-        <rect x="14" y="3" width="7" height="7" />
-        <rect x="14" y="14" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" />
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <path d="M9 22V12h6v10" />
       </svg>
     ),
   },
@@ -51,12 +49,26 @@ const NAV_LINKS = [
   },
 ];
 
+const PROFILE_TAB = {
+  href: "/profile",
+  label: "Profile",
+  icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+    </svg>
+  ),
+};
+
+// Mobile tab bar shows all 5 destinations (desktop keeps Profile separate,
+// in its own user-info card at the bottom of the sidebar).
+const TAB_BAR_LINKS = [...NAV_LINKS, PROFILE_TAB];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [fullName, setFullName] = useState("User");
   const [email, setEmail] = useState("");
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -66,11 +78,6 @@ export default function Sidebar() {
       setFullName(user.user_metadata?.full_name || "User");
     });
   }, []);
-
-  // Close the mobile drawer whenever the route changes
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   async function handleLogOut() {
     const supabase = createClient();
@@ -82,38 +89,30 @@ export default function Sidebar() {
     <>
       {/* Mobile top bar */}
       <div className="mobile-topbar">
-        <button
-          type="button"
-          className="hamburger-btn"
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((v) => !v)}
-        >
-          {mobileOpen ? (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          )}
-        </button>
         <Link href="/dashboard" className="mobile-topbar-logo">
-          <img src="/icons/icon-192.png" alt="" width={20} height={20} style={{ borderRadius: 5, display: "block" }} />
-          Nourishly
+          <img src="/icons/icon-192.png" alt="Nourishly" width={26} height={26} style={{ borderRadius: 6, display: "block" }} />
         </Link>
       </div>
 
-      {/* Backdrop, mobile only */}
-      {mobileOpen && (
-        <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-      )}
+      {/* Mobile bottom tab bar */}
+      <nav className="mobile-tabbar" aria-label="Primary">
+        {TAB_BAR_LINKS.map(({ href, label, icon }) => {
+          const isActive = pathname === href || pathname.startsWith(href + "/");
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
+              className={`tabbar-item${isActive ? " tabbar-item--active" : ""}`}
+            >
+              <span className="tabbar-icon">{icon}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
-      <aside className={`sidebar${mobileOpen ? " sidebar--open" : ""}`} style={{
+      <aside className="sidebar" style={{
         position: "fixed",
         top: 0,
         left: 0,
@@ -162,7 +161,7 @@ export default function Sidebar() {
               <Link
                 key={href}
                 href={href}
-                onClick={() => setMobileOpen(false)}
+                className={`sidebar-nav-link${isActive ? " sidebar-nav-link--active" : ""}`}
                 style={{
                   display: "flex",
                   flexDirection: "row",
@@ -173,10 +172,10 @@ export default function Sidebar() {
                   textDecoration: "none",
                   outline: "none",
                   backgroundColor: isActive ? "var(--color-green-light)" : "transparent",
-                  color: isActive ? "var(--color-green-dark)" : "var(--color-text-2)",
+                  color: isActive ? "var(--color-green)" : "var(--color-text-2)",
                   fontWeight: isActive ? 600 : 500,
                   fontSize: "0.875rem",
-                  transition: "background 0.15s ease",
+                  transition: "background 0.15s ease, color 0.15s ease",
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -195,7 +194,6 @@ export default function Sidebar() {
         <div style={{ borderTop: "1px solid var(--color-border)", padding: "12px 16px" }}>
           <Link
             href="/profile"
-            onClick={() => setMobileOpen(false)}
             className="user-info-link"
             style={{
               display: "flex",
@@ -265,6 +263,21 @@ export default function Sidebar() {
           background: var(--color-surface-2);
         }
 
+        .sidebar-nav-link:hover {
+          background: var(--color-surface-2) !important;
+        }
+        .sidebar-nav-link--active:hover {
+          background: var(--color-green-light) !important;
+          color: var(--color-green-dark) !important;
+        }
+        .sidebar-nav-link:active {
+          background: var(--color-surface-2) !important;
+        }
+        .sidebar-nav-link--active:active {
+          background: var(--color-green-light) !important;
+          color: var(--color-green-dark) !important;
+        }
+
         .logout-btn {
           display: flex;
           align-items: center;
@@ -290,7 +303,7 @@ export default function Sidebar() {
           display: none;
         }
 
-        .sidebar-overlay {
+        .mobile-tabbar {
           display: none;
         }
 
@@ -303,63 +316,86 @@ export default function Sidebar() {
             height: 56px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 0 16px;
-            background: var(--color-surface);
-            border-bottom: 1px solid var(--color-border);
-            z-index: 60;
-          }
-
-          .hamburger-btn {
-            display: flex;
-            align-items: center;
             justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            border: none;
-            background: transparent;
-            color: var(--color-text);
-            cursor: pointer;
-            flex-shrink: 0;
-          }
-
-          .hamburger-btn:hover {
-            background: var(--color-surface-2);
+            padding: 0 16px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            z-index: 60;
           }
 
           .mobile-topbar-logo {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-family: var(--font-display), system-ui, sans-serif;
-            font-weight: 700;
-            font-size: 1rem;
-            color: var(--color-green-dark);
             text-decoration: none;
           }
 
           :global(.sidebar) {
-            top: 56px !important;
-            height: calc(100vh - 56px) !important;
-            max-width: 85vw;
-            transform: translateX(-100%);
-            transition: transform 0.25s ease;
+            display: none !important;
           }
 
-          :global(.sidebar.sidebar--open) {
-            transform: translateX(0);
-          }
-
-          .sidebar-overlay {
-            display: block;
+          .mobile-tabbar {
+            display: flex;
+            align-items: stretch;
+            justify-content: space-around;
             position: fixed;
-            top: 56px;
+            bottom: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.4);
-            z-index: 45;
+            height: 58px;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.05);
+            z-index: 60;
+          }
+
+          .tabbar-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            outline: none;
+          }
+
+          .tabbar-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            color: var(--color-text-3);
+            transition: background 0.15s ease, color 0.15s ease;
+          }
+
+          .tabbar-item--active .tabbar-icon {
+            background: var(--color-green-light);
+            color: var(--color-green);
+          }
+
+          .tabbar-item:active .tabbar-icon {
+            background: var(--color-surface-2);
+          }
+
+          .tabbar-item--active:active .tabbar-icon {
+            background: var(--color-green-light);
+            color: var(--color-green-dark);
+          }
+
+          @media (hover: hover) {
+            .tabbar-item:hover .tabbar-icon {
+              background: var(--color-surface-2);
+              color: var(--color-text-2);
+            }
+            .tabbar-item--active:hover .tabbar-icon {
+              background: var(--color-green-light);
+              color: var(--color-green-dark);
+            }
           }
         }
       `}</style>

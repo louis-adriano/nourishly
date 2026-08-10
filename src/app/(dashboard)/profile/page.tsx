@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { calculateNutritionTargets, type HealthGoal, type Sex } from "@/lib/nutrition";
 
@@ -104,6 +105,7 @@ type Tab = "profile" | "health";
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [pageLoading, setPageLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
@@ -168,6 +170,12 @@ export default function ProfilePage() {
 
   const profileFormValid = fullName.trim() !== "";
   const healthFormValid = age !== "" && weight !== "" && height !== "" && sex !== "";
+
+  async function handleLogOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   async function handleSaveProfile() {
     if (!profileFormValid) return;
@@ -295,7 +303,8 @@ export default function ProfilePage() {
           @media (max-width: 767px) {
             .loading-overlay {
               padding-left: 0;
-              padding-top: 56px;
+              top: 56px;
+              bottom: calc(58px + env(safe-area-inset-bottom, 0px));
             }
           }
         `}</style>
@@ -357,6 +366,18 @@ export default function ProfilePage() {
         />
       )}
 
+      {/* Log Out — mobile only; on desktop this lives in the sidebar */}
+      <div className="mobile-logout-wrap">
+        <button type="button" className="mobile-logout-btn" onClick={handleLogOut}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Log Out
+        </button>
+      </div>
+
       <style jsx>{`
         .profile-page {
           font-family: var(--font-body), system-ui, sans-serif;
@@ -400,6 +421,9 @@ export default function ProfilePage() {
           background: var(--color-green);
           color: white;
         }
+        .mobile-logout-wrap {
+          display: none;
+        }
         @media (max-width: 767px) {
           .tabs-row {
             width: 100%;
@@ -408,6 +432,27 @@ export default function ProfilePage() {
             flex: 1 1 0;
             min-height: 44px;
             text-align: center;
+          }
+          .mobile-logout-wrap {
+            display: block;
+            margin-top: 24px;
+          }
+          .mobile-logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 44px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1.5px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-danger);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-body), system-ui, sans-serif;
           }
         }
       `}</style>

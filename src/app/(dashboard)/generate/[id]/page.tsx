@@ -107,6 +107,7 @@ export default function RecipeDetailPage() {
   // ── Live steps state (may be regenerated after substitution) ───────────────
   const [steps, setSteps] = useState<Step[]>([]);
   const [stepsLoading, setStepsLoading] = useState(false);
+  const stepsRequestId = useRef(0);
 
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -118,6 +119,7 @@ export default function RecipeDetailPage() {
   // ── Log Meal state ──────────────────────────────────────────────────────────
   const [cookState, setCookState] = useState<"idle" | "loading" | "logged">("idle");
   const [cookError, setCookError] = useState<string | null>(null);
+  const [mealTypeModalOpen, setMealTypeModalOpen] = useState(false);
 
   // ── Save Recipe state ───────────────────────────────────────────────────────
   const [saveState, setSaveState] = useState<"idle" | "loading" | "saved">("idle");
@@ -243,41 +245,33 @@ export default function RecipeDetailPage() {
       }
 
       // ── Update ingredient list ──────────────────────────────────────────────
-      // Jonathan's API returns the substitute name — find the ingredient
-      // mentioned in the user message and swap it out by name match.
-      if (data.substitute) {
-        const updatedIngredients = ingredients.map((ing, index) => {
-          const ingredientWords = ing.name.toLowerCase().split(' ');
-          const msgLower = trimmed.toLowerCase();
-          const msgWords = msgLower.split(' ');
-          const matches =
-            ingredientWords.some(word => word.length > 2 && msgLower.includes(word)) ||
-            msgWords.some(word => word.length > 2 && ing.name.toLowerCase().includes(word));
-          if (matches) {
-            setSubstitutedIngredients(prev => new Set([...prev, index]));
-            return {
-              ...ing,
-              name: data.substitute,
-              quantity: data.substituteQuantity ?? ing.quantity,
-              unit: data.substituteUnit ?? ing.unit,
-            };
-          }
-          return ing;
-        });
+      // The substitutions API now tells us exactly which ingredient it replaced.
+      if (data.substitute && typeof data.original_index === 'number' &&
+          data.original_index >= 0 && data.original_index < ingredients.length) {
+        const bestIndex = data.original_index;
+        const updatedIngredients = ingredients.map((ing, index) =>
+          index === bestIndex
+            ? { ...ing, name: data.substitute, quantity: data.substituteQuantity ?? ing.quantity, unit: data.substituteUnit ?? ing.unit }
+            : ing
+        );
+        setSubstitutedIngredients(prev => new Set([...prev, bestIndex]));
         setIngredients(updatedIngredients);
         void regenerateSteps(updatedIngredients);
+        if (nutrition) void persistRecipeChanges(updatedIngredients, steps, nutrition);
       }
 
       // ── Update nutrition ────────────────────────────────────────────────────
       // Jonathan's keys: { calories, protein, carbs, fat }
       // Our Nutrition shape: { calories, protein_g, carbs_g, fat_g }
       if (data.updatedNutrition) {
-        setNutrition({
+        const updatedNutrition = {
           calories:  data.updatedNutrition.calories,
           protein_g: data.updatedNutrition.protein,
           carbs_g:   data.updatedNutrition.carbs,
           fat_g:     data.updatedNutrition.fat,
-        });
+        };
+        setNutrition(updatedNutrition);
+        void persistRecipeChanges(ingredients, steps, updatedNutrition);
       }
 
       // ── Add AI reply to thread ──────────────────────────────────────────────
@@ -296,6 +290,7 @@ export default function RecipeDetailPage() {
   // ── Regenerate cooking steps after substitution ─────────────────────────────
   async function regenerateSteps(updatedIngredients: Ingredient[]) {
     if (!recipe) return;
+    const requestId = ++stepsRequestId.current;
     setStepsLoading(true);
     try {
       const res = await fetch('/api/substitutions/steps', {
@@ -303,18 +298,51 @@ export default function RecipeDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipe_title: recipe.title, ingredients: updatedIngredients }),
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error('Failed to update steps');
       const data = await res.json();
-      if (data.steps) setSteps(data.steps);
+      if (data.steps && requestId === stepsRequestId.current) {
+        setSteps(data.steps);
+        if (nutrition) void persistRecipeChanges(ingredients, data.steps, nutrition);
+      }
     } catch {
-      // silently fail — original steps remain
+      if (requestId === stepsRequestId.current) {
+        setMessages(prev => [...prev, { role: "error", text: "Steps couldn't be updated automatically — the ingredient list is correct, but you may need to adjust the method yourself." }]);
+      }
     } finally {
-      setStepsLoading(false);
+      if (requestId === stepsRequestId.current) setStepsLoading(false);
+    }
+  }
+
+  // ── Persist substitution changes so they survive a reload ──────────────────
+  async function persistRecipeChanges(
+    updatedIngredients: Ingredient[],
+    updatedSteps: Step[],
+    updatedNutrition: Nutrition
+  ) {
+    if (!recipe) return;
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ingredients: updatedIngredients,
+          steps: updatedSteps,
+          nutrition: updatedNutrition,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('[persist] failed:', data);
+      } else {
+        console.log('[persist] success');
+      }
+    } catch (err) {
+      console.error('[persist] error:', err);
     }
   }
 
   // ── Mark as Cooked ──────────────────────────────────────────────────────────
-  async function handleMarkAsCooked() {
+  async function handleMarkAsCooked(mealType: string = "snack") {
     if (!recipe || !nutrition) return;
     setCookState("loading");
     setCookError(null);
@@ -329,6 +357,7 @@ export default function RecipeDetailPage() {
           carbs_g: nutrition.carbs_g,
           fat_g: nutrition.fat_g,
           logged_date: getLocalDateString(),
+          meal_type: mealType,
         }),
       });
       if (res.status === 201 || res.status === 409) {
@@ -405,10 +434,17 @@ export default function RecipeDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
+      <div className="recipe-loading" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
         <div style={{ width: 40, height: 40, border: "3px solid var(--color-border)", borderTopColor: "var(--color-green)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <p style={{ fontSize: "0.875rem", color: "var(--color-text-3)", margin: 0, fontFamily: "var(--font-body), system-ui, sans-serif" }}>Loading recipe…</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style jsx>{`
+          @media (max-width: 767px) {
+            .recipe-loading {
+              min-height: calc(100vh - 162px - env(safe-area-inset-bottom, 0px));
+            }
+          }
+        `}</style>
       </div>
     );
   }
@@ -608,7 +644,7 @@ export default function RecipeDetailPage() {
 
           {/* Log Meal button */}
           <button
-            onClick={handleMarkAsCooked}
+            onClick={() => setMealTypeModalOpen(true)}
             disabled={cookState !== "idle"}
             style={{
               width: "100%",
@@ -848,6 +884,33 @@ export default function RecipeDetailPage() {
 
         </div>
       </div>
+
+      {/* ── Meal type selector modal ── */}
+      {mealTypeModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+          zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setMealTypeModalOpen(false)}>
+          <div style={{ background: "white", borderRadius: 16, padding: 24,
+            width: 320, maxWidth: "90vw" }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700,
+              fontSize: "1.1rem", marginBottom: 16 }}>
+              Log as which meal?
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {["Breakfast", "Lunch", "Dinner", "Snack"].map(type => (
+                <button
+                  key={type}
+                  onClick={() => { setMealTypeModalOpen(false); handleMarkAsCooked(type.toLowerCase()); }}
+                  style={{ padding: "12px", borderRadius: 10, border: "1.5px solid var(--color-border)",
+                    background: "white", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
