@@ -323,7 +323,7 @@ export default function Sidebar() {
             z-index: 60;
           }
 
-          .tabbar-item {
+          :global(.tabbar-item) {
             flex: 1;
             height: 100%;
             display: flex;
@@ -349,26 +349,26 @@ export default function Sidebar() {
             height: 26px;
           }
 
-          .tabbar-item--active .tabbar-icon {
+          :global(.tabbar-item--active) .tabbar-icon {
             background: var(--color-green-light);
             color: var(--color-green);
           }
 
-          .tabbar-item:active .tabbar-icon {
+          :global(.tabbar-item:active) .tabbar-icon {
             background: var(--color-surface-2);
           }
 
-          .tabbar-item--active:active .tabbar-icon {
+          :global(.tabbar-item--active:active) .tabbar-icon {
             background: var(--color-green-light);
             color: var(--color-green-dark);
           }
 
           @media (hover: hover) {
-            .tabbar-item:hover .tabbar-icon {
+            :global(.tabbar-item:hover) .tabbar-icon {
               background: var(--color-surface-2);
               color: var(--color-text-2);
             }
-            .tabbar-item--active:hover .tabbar-icon {
+            :global(.tabbar-item--active:hover) .tabbar-icon {
               background: var(--color-green-light);
               color: var(--color-green-dark);
             }
