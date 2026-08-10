@@ -5,6 +5,17 @@ import { normaliseUnitsInFreeText } from '@/lib/units'
 
 const SUBSTITUTION_LIMIT = 10
 
+function isValidNutrition(n: unknown): n is { calories: number; protein: number; carbs: number; fat: number } {
+  if (!n || typeof n !== 'object') return false
+  const obj = n as Record<string, unknown>
+  return (
+    typeof obj.calories === 'number' && obj.calories > 0 &&
+    typeof obj.protein === 'number' && obj.protein >= 0 &&
+    typeof obj.carbs === 'number' && obj.carbs >= 0 &&
+    typeof obj.fat === 'number' && obj.fat >= 0
+  )
+}
+
 // ─── POST /api/substitutions ──────────────────────────────────────────────────
 
 export async function POST(request: Request) {
@@ -56,32 +67,44 @@ export async function POST(request: Request) {
     }
 
     // ── Call Groq ───────────────────────────────────────────────────────────
+    const prompt = `You are a professional chef helping with ingredient substitutions.
+
+Current recipe ingredients:
+${recipe.ingredients.map((ing: { quantity: string; unit: string; name: string }, i: number) => `${i}: ${ing.quantity}${ing.unit} ${ing.name}`).join('\n')}
+
+User request: "${userMessage}"
+
+Identify EXACTLY ONE ingredient from the numbered list above that the user
+wants to substitute, and suggest a replacement. Even if the user's message
+mentions something not in the list (like "vegan cheese" when the list has
+"cheese"), find the closest matching ingredient by index.
+
+Recalculate the full recipe's total nutrition after this substitution,
+based on ALL ingredients in the list above (with the substitution applied),
+for the same serving size as the original recipe. Base calorie/macro
+estimates on standard nutritional data for each ingredient. Do not return
+zero or null values — every field must be a realistic positive number.
+
+Return ONLY a JSON object with this exact shape:
+{
+  "original_index": <number, the index from the list above>,
+  "original_ingredient": "<exact name as it appears in the list>",
+  "substitute": "<new ingredient name>",
+  "substituteQuantity": "<quantity>",
+  "substituteUnit": "<unit>",
+  "explanation": "<brief explanation>",
+  "updatedNutrition": { "calories": <number>, "protein": <number>, "carbs": <number>, "fat": <number> }
+}
+
+Do not include markdown formatting, only the raw JSON object.`
+
     const message = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 1024,
       messages: [
         {
           role: 'user',
-          content: `You are a nutrition expert helping suggest ingredient substitutions for recipes.
-
-Current recipe:
-${JSON.stringify(recipe, null, 2)}
-
-User request: ${userMessage}
-
-All ingredient quantities in your response MUST use metric units only: grams (g) or kilograms (kg) for solids, millilitres (ml) or litres (L) for liquids, or count (e.g. "2 cloves", "1 onion") for whole items. NEVER use cups, oz, lb, tsp/tbsp-as-imperial, or °F. If a temperature is mentioned, use °C.
-
-Respond with a JSON object only (no markdown, no extra text) in this exact format:
-{
-  "substitute": "the substitute ingredient name",
-  "explanation": "brief explanation of why this works and any preparation notes",
-  "updatedNutrition": {
-    "calories": <number>,
-    "protein": <number>,
-    "carbs": <number>,
-    "fat": <number>
-  }
-}`,
+          content: prompt,
         },
       ],
     })
@@ -106,10 +129,16 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
       parsed.explanation = normaliseUnitsInFreeText(parsed.explanation)
     }
 
+    // Extract the original ingredient directly from Groq's structured
+    // original_index, instead of relying on the (unused) body.ingredient field.
+    const originalIndex = typeof parsed.original_index === 'number' ? parsed.original_index : Number(parsed.original_index)
+    const originalIngredient =
+      recipe.ingredients[originalIndex]?.name ?? parsed.original_ingredient ?? 'unknown'
+
     const { error: substitutionInsertError } = await supabase.from('substitutions').insert({
       user_id: user.id,
       recipe_id: recipe.id,
-      original_ingredient: body.ingredient ?? 'unknown',
+      original_ingredient: originalIngredient,
       substitute: parsed.substitute ?? '',
       explanation: parsed.explanation ?? '',
     })
@@ -128,6 +157,11 @@ Respond with a JSON object only (no markdown, no extra text) in this exact forma
     ])
     if (chatInsertError) {
       console.error('[substitutions] recipe_chat_messages insert error:', chatInsertError)
+    }
+
+    if (!isValidNutrition(parsed.updatedNutrition)) {
+      // fall back to the original recipe's nutrition unchanged
+      parsed.updatedNutrition = recipe.nutrition ?? { calories: 0, protein: 0, carbs: 0, fat: 0 }
     }
 
     // ── Return response with updated usage metadata ─────────────────────────

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     // ── Validate request body ─────────────────────────────────────────────────
     const body = await request.json()
-    const { recipe_id, calories, protein_g, carbs_g, fat_g, logged_date } = body
+    const { recipe_id, calories, protein_g, carbs_g, fat_g, logged_date, meal_type } = body
 
     if (!recipe_id || calories == null || protein_g == null || carbs_g == null || fat_g == null) {
       return NextResponse.json(
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         protein_g,
         carbs_g,
         fat_g,
+        meal_type: meal_type ?? 'snack',
       })
       .select()
       .single()

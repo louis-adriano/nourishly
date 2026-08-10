@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     const { data: logs, error: logsError } = await supabase
       .from('meal_logs')
-      .select('log_id, recipe_id, logged_date, calories, protein_g, carbs_g, fat_g, recipes(title)')
+      .select('log_id, recipe_id, logged_date, calories, protein_g, carbs_g, fat_g, meal_type, recipes(title)')
       .eq('user_id', user.id)
       .eq('logged_date', today)
 

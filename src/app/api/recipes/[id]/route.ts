@@ -40,3 +40,47 @@ export async function GET(
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+
+    const body = await request.json()
+    const { ingredients, steps, nutrition } = body
+
+    const updates: Record<string, unknown> = {}
+    if (ingredients) updates.ingredients_json = ingredients
+    if (steps) updates.steps_json = steps
+    if (nutrition) updates.nutrition_json = nutrition
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    const { data, error } = await supabase
+      .from('recipes')
+      .update(updates)
+      .eq('recipe_id', params.id)
+      .eq('user_id', user.id)
+      .select('recipe_id')
+
+    if (error) {
+      console.error('[recipes PATCH] error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!data || data.length === 0) {
+      console.error('[recipes PATCH] no rows matched — recipe_id or user_id mismatch, or RLS blocked it', {
+        recipe_id: params.id, user_id: user.id
+      })
+      return NextResponse.json({ error: 'Recipe not found or not owned by user' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, updated: data[0] })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Something went wrong'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
