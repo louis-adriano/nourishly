@@ -30,6 +30,18 @@ export default function GroceryPage() {
   const [inputQty, setInputQty] = useState("");
   const [addLoading, setAddLoading] = useState(false);
 
+  // Delete-group confirmation modal state
+  const [groupToDelete, setGroupToDelete] = useState<GroceryGroup | null>(null);
+
+  useEffect(() => {
+    if (!groupToDelete) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setGroupToDelete(null);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [groupToDelete]);
+
   // ── Fetch all grocery items on mount ────────────────────────────────────────
   useEffect(() => {
     fetchGroups();
@@ -346,7 +358,7 @@ export default function GroceryPage() {
                 {group.recipeName}
               </h2>
               <button
-                onClick={() => handleDeleteGroup(group)}
+                onClick={() => setGroupToDelete(group)}
                 title={group.groupId === "group-general" ? "Clear all general items" : "Remove this group"}
                 style={{ fontSize: 12, color: "#4a6b58", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 6, transition: "color 0.15s ease" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#e57373")}
@@ -410,6 +422,105 @@ export default function GroceryPage() {
           </section>
         ))}
       </div>
+
+      {/* ── Delete group confirmation modal ── */}
+      {groupToDelete && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setGroupToDelete(null); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+        >
+          <div style={{
+            background: "var(--color-surface)",
+            borderRadius: "20px",
+            padding: "32px",
+            width: "100%",
+            maxWidth: "420px",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+          }}>
+            <h2 style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 700,
+              fontSize: "1.15rem",
+              color: "var(--color-text)",
+              margin: "0 0 10px",
+              letterSpacing: "-0.02em",
+            }}>
+              Remove {groupToDelete.recipeName}?
+            </h2>
+            <p style={{
+              fontSize: "0.875rem",
+              color: "var(--color-text-3)",
+              margin: "0 0 24px",
+              lineHeight: 1.6,
+            }}>
+              This will delete all {groupToDelete.items.length} item{groupToDelete.items.length === 1 ? "" : "s"} in this group. This can&apos;t be undone.
+            </p>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => setGroupToDelete(null)}
+                className="modal-cancel-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteGroup(groupToDelete);
+                  setGroupToDelete(null);
+                }}
+                className="modal-remove-btn"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+          <style jsx>{`
+            .modal-cancel-btn {
+              flex: 1;
+              padding: 12px;
+              border-radius: 12px;
+              border: 1.5px solid var(--color-border);
+              background: transparent;
+              color: var(--color-text-2);
+              font-size: 0.875rem;
+              font-weight: 600;
+              cursor: pointer;
+              font-family: var(--font-body), system-ui, sans-serif;
+              transition: background 0.15s ease;
+            }
+            .modal-remove-btn {
+              flex: 1;
+              padding: 12px;
+              border-radius: 12px;
+              border: none;
+              background: var(--color-danger);
+              color: white;
+              font-size: 0.875rem;
+              font-weight: 700;
+              cursor: pointer;
+              font-family: var(--font-body), system-ui, sans-serif;
+              transition: filter 0.15s ease;
+            }
+            @media (hover: hover) {
+              .modal-cancel-btn:hover {
+                background-color: var(--color-surface-2);
+              }
+              .modal-remove-btn:hover {
+                filter: brightness(0.88);
+              }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }

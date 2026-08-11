@@ -82,6 +82,7 @@ export default function Sidebar() {
   async function handleLogOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    localStorage.removeItem("nourishly:lastGenerated");
     router.push("/login");
   }
 
@@ -161,22 +162,7 @@ export default function Sidebar() {
               <Link
                 key={href}
                 href={href}
-                className={`sidebar-nav-link${isActive ? " sidebar-nav-link--active" : ""}`}
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 14px",
-                  borderRadius: "10px",
-                  textDecoration: "none",
-                  outline: "none",
-                  backgroundColor: isActive ? "var(--color-green-light)" : "transparent",
-                  color: isActive ? "var(--color-green)" : "var(--color-text-2)",
-                  fontWeight: isActive ? 600 : 500,
-                  fontSize: "0.875rem",
-                  transition: "background 0.15s ease, color 0.15s ease",
-                }}
+                className={`nav-link${isActive ? " active" : ""}`}
               >
                 <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                   {icon}
@@ -263,19 +249,31 @@ export default function Sidebar() {
           background: var(--color-surface-2);
         }
 
-        .sidebar-nav-link:hover {
-          background: var(--color-surface-2) !important;
+        :global(.nav-link) {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          text-decoration: none;
+          outline: none;
+          font-weight: 500;
+          font-size: 0.875rem;
+          color: var(--color-text-2);
+          background-color: transparent;
+          transition: background 0.15s ease;
         }
-        .sidebar-nav-link--active:hover {
-          background: var(--color-green-light) !important;
-          color: var(--color-green-dark) !important;
+        :global(.nav-link.active) {
+          background-color: var(--color-green-light);
+          color: var(--color-green-dark);
+          font-weight: 600;
         }
-        .sidebar-nav-link:active {
-          background: var(--color-surface-2) !important;
-        }
-        .sidebar-nav-link--active:active {
-          background: var(--color-green-light) !important;
-          color: var(--color-green-dark) !important;
+        @media (hover: hover) {
+          :global(.nav-link:not(.active):hover) {
+            background-color: var(--color-green-light);
+            opacity: 0.6;
+          }
         }
 
         .logout-btn {
