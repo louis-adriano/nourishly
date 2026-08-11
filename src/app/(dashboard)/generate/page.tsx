@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getLocalDateString } from "@/lib/date";
 
-type PageState = "idle" | "loading" | "done" | "error";
+type PageState = "idle" | "loading" | "restoring" | "done" | "error";
+
+const LAST_GENERATED_KEY = "nourishly:lastGenerated";
 
 interface Recipe {
   id: string;
@@ -85,7 +88,18 @@ function chipStyle(active: boolean) {
 }
 
 export default function GeneratePage() {
-  const [pageState, setPageState] = useState<PageState>("idle");
+  const [pageState, setPageState] = useState<PageState>(() => {
+    if (typeof window === "undefined") return "idle"; // SSR guard
+    try {
+      const stored = localStorage.getItem(LAST_GENERATED_KEY);
+      if (!stored) return "idle";
+      const parsed = JSON.parse(stored);
+      if (parsed.date !== getLocalDateString()) return "idle";
+      return "restoring";
+    } catch {
+      return "idle";
+    }
+  });
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [previousTitles, setPreviousTitles] = useState<string[]>([]);
@@ -100,6 +114,43 @@ export default function GeneratePage() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  // Restore the last-generated batch (by ID) if it's still from today, so
+  // switching tabs doesn't force another Groq call for recipes already saved.
+  useEffect(() => {
+    const raw = localStorage.getItem(LAST_GENERATED_KEY);
+    if (!raw) return;
+
+    let stored: { date: string; recipeIds: string[] } | null = null;
+    try {
+      stored = JSON.parse(raw);
+    } catch {
+      stored = null;
+    }
+
+    if (!stored || stored.date !== getLocalDateString()) {
+      localStorage.removeItem(LAST_GENERATED_KEY);
+      setPageState("idle");
+      return;
+    }
+
+    Promise.all(
+      stored.recipeIds.map((id) =>
+        fetch(`/api/recipes/${id}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => (data?.recipe as Recipe | undefined) ?? null)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      const restored = results.filter((r): r is Recipe => r !== null);
+      if (restored.length > 0) {
+        setRecipes(restored);
+        setPageState("done");
+      } else {
+        setPageState("idle");
+      }
+    });
   }, []);
 
   async function handleToggleSave(recipeId: string) {
@@ -232,6 +283,10 @@ export default function GeneratePage() {
       }
       setRecipes(data.recipes);
       setPreviousTitles(data.recipes.map((r: Recipe) => r.title));
+      localStorage.setItem(LAST_GENERATED_KEY, JSON.stringify({
+        date: getLocalDateString(),
+        recipeIds: data.recipes.map((r: Recipe) => r.id),
+      }));
       setPageState("done");
     } catch {
       setErrorMsg("Network error — please try again");
@@ -241,6 +296,7 @@ export default function GeneratePage() {
 
   function handleGenerateAgain() {
     setRecipes([]);
+    localStorage.removeItem(LAST_GENERATED_KEY);
     handleGenerate();
   }
 
@@ -344,10 +400,11 @@ export default function GeneratePage() {
         alignItems: pageState === "done" ? "flex-start" : "center",
         justifyContent: pageState === "done" ? "flex-start" : "center",
       }}>
-        {pageState === "idle"    && <EmptyState onGenerate={handleGenerate} />}
-        {pageState === "loading" && <LoadingState />}
-        {pageState === "error"   && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
-        {pageState === "done"    && <RecipeGrid recipes={recipes} savedIds={savedIds} onToggleSave={handleToggleSave} />}
+        {pageState === "idle"      && <EmptyState onGenerate={handleGenerate} />}
+        {pageState === "restoring" && <LoadingState mode="restoring" />}
+        {pageState === "loading"   && <LoadingState />}
+        {pageState === "error"     && <ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} />}
+        {pageState === "done"      && <RecipeGrid recipes={recipes} savedIds={savedIds} onToggleSave={handleToggleSave} />}
       </div>
 
       {/* ── Preferences Modal ── */}
@@ -999,17 +1056,20 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 // ── Loading state ─────────────────────────────────────────────────────────────
 
-function LoadingState() {
-  const steps = [
-    "Reading your nutrition profile…",
-    "Crafting personalised recipes…",
-    "Calculating nutrition facts…",
-    "Almost ready…",
-  ];
+function LoadingState({ mode = "generating" }: { mode?: "generating" | "restoring" }) {
+  const isRestoring = mode === "restoring";
+  const steps = isRestoring
+    ? ["Loading your saved recipes…"]
+    : [
+        "Reading your nutrition profile…",
+        "Crafting personalised recipes…",
+        "Calculating nutrition facts…",
+        "Almost ready…",
+      ];
 
   return (
     <div className="loading-state">
-      <div className="loading-ring" aria-label="Generating recipes" role="status">
+      <div className="loading-ring" aria-label={isRestoring ? "Loading recipes" : "Generating recipes"} role="status">
         <div className="ring ring--outer" />
         <div className="ring ring--inner" />
         <div className="loading-icon" aria-hidden="true">
@@ -1020,8 +1080,8 @@ function LoadingState() {
           </svg>
         </div>
       </div>
-      <h2 className="loading-title">Cooking up your recipes…</h2>
-      <p className="loading-sub">Nourishly is thinking… this usually takes a few seconds.</p>
+      <h2 className="loading-title">{isRestoring ? "Loading your recipes…" : "Cooking up your recipes…"}</h2>
+      <p className="loading-sub">{isRestoring ? "Just a moment…" : "Nourishly is thinking… this usually takes a few seconds."}</p>
       <div className="loading-steps" role="list">
         {steps.map((step, i) => (
           <div key={step} className="loading-step" role="listitem" style={{ animationDelay: `${i * 0.6}s` }}>
