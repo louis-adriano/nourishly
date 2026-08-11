@@ -175,6 +175,15 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState("");
   const [historyData, setHistoryData] = useState<DayHistory[]>([]);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState("breakfast");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -272,6 +281,9 @@ export default function DashboardPage() {
     };
   });
 
+  const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const userInitial = userName ? userName.charAt(0).toUpperCase() : "U";
+
   return (
     <>
       {isLoading && (
@@ -305,7 +317,163 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isLoading && (
+      {!isLoading && isMobile && (
+      <div style={{ paddingBottom: "76px", maxWidth: "480px", margin: "0 auto" }}>
+
+        {/* Greeting hero card */}
+        <div style={{ margin: "12px 16px 14px", background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)", borderRadius: "16px", padding: "16px 18px", position: "relative", overflow: "hidden" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: "17px", fontWeight: 700, color: "white", fontFamily: "var(--font-display)" }}>
+                {greeting}
+              </div>
+              <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.8)", marginTop: "2px" }}>{todayLabel}</div>
+            </div>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>
+              {userInitial}
+            </div>
+          </div>
+        </div>
+
+        {/* Compact hero: ring + 4 mini stats */}
+        <div style={{ margin: "0 16px 14px", background: "var(--color-surface)", borderRadius: "16px", padding: "16px", display: "flex", alignItems: "center", gap: "14px", border: "1px solid var(--color-border)" }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--color-surface-2)" strokeWidth="8"/>
+              <circle cx="32" cy="32" r="26" fill="none"
+                stroke={caloriePctRaw >= 100 ? "var(--color-danger)" : caloriePctRaw >= 80 ? "#F59E0B" : "var(--color-green)"}
+                strokeWidth="8"
+                strokeDasharray={`${(Math.min(caloriePctRaw,100)/100) * 163} 163`}
+                strokeLinecap="round" transform="rotate(-90 32 32)" />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--color-text)", lineHeight: 1 }}>{Math.round(caloriePctRaw)}%</div>
+              <div style={{ fontSize: "9px", color: "var(--color-text-3)" }}>of goal</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+            <div style={{ background: "var(--color-surface-2)", borderRadius: "8px", padding: "6px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600 }}>{totals.calories}</div>
+              <div style={{ fontSize: "9px", color: "var(--color-text-3)" }}>eaten</div>
+            </div>
+            <div style={{ background: "var(--color-surface-2)", borderRadius: "8px", padding: "6px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-green-dark)" }}>{Math.max(targets.calories - totals.calories, 0)}</div>
+              <div style={{ fontSize: "9px", color: "var(--color-text-3)" }}>left</div>
+            </div>
+            <div style={{ background: "var(--color-surface-2)", borderRadius: "8px", padding: "6px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600 }}>{targets.calories}</div>
+              <div style={{ fontSize: "9px", color: "var(--color-text-3)" }}>goal</div>
+            </div>
+            <div style={{ background: "var(--color-surface-2)", borderRadius: "8px", padding: "6px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "#c98500" }}>{streakCount}🔥</div>
+              <div style={{ fontSize: "9px", color: "var(--color-text-3)" }}>streak</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Horizontal scroll macro chips */}
+        <div style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "0 16px 14px" }}>
+          {[
+            { name: "Protein", val: totals.protein, goal: targets.protein, color: "#2a78d6" },
+            { name: "Carbs", val: totals.carbs, goal: targets.carbs, color: "#eda100" },
+            { name: "Fat", val: totals.fat, goal: targets.fat, color: "#eb6834" },
+          ].map(macro => (
+            <div key={macro.name} style={{ flexShrink: 0, background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "12px", padding: "10px 14px", minWidth: "88px" }}>
+              <div style={{ fontSize: "10px", color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{macro.name}</div>
+              <div style={{ fontSize: "15px", fontWeight: 600, margin: "2px 0 5px" }}>
+                {macro.val}<span style={{ fontSize: "10px", color: "var(--color-text-3)" }}>/{macro.goal}g</span>
+              </div>
+              <div style={{ height: "3px", background: "var(--color-surface-2)", borderRadius: "2px", overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: "2px", width: `${Math.min((macro.val/macro.goal)*100, 100)}%`, background: macro.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Food diary with pill tabs */}
+        <div style={{ padding: "0 16px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>Food diary</span>
+          </div>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+            {["Breakfast", "Lunch", "Dinner", "Snacks"].map(cat => (
+              <button key={cat} onClick={() => setActiveMobileTab(cat.toLowerCase())}
+                style={{ flex: 1, textAlign: "center", padding: "10px 0", minHeight: "40px", borderRadius: "20px", fontSize: "12px", fontWeight: 600, border: "none",
+                  background: activeMobileTab === cat.toLowerCase() ? "var(--color-green)" : "var(--color-surface-2)",
+                  color: activeMobileTab === cat.toLowerCase() ? "white" : "var(--color-text-2)" }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div>
+            {(mealsByCategory.find(c => c.key === activeMobileTab)?.meals ?? []).length === 0 ? (
+              <div style={{ fontSize: "11px", color: "var(--color-text-3)", padding: "12px 0", textAlign: "center" }}>
+                No {activeMobileTab} logged
+              </div>
+            ) : (
+              mealsByCategory.find(c => c.key === activeMobileTab)?.meals.map((meal, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: "0.5px solid var(--color-border)" }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "8px", background: "var(--color-green-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    🍽️
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "12px", fontWeight: 600 }}>{meal.recipe_title ?? "Logged meal"}</div>
+                  </div>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-green-dark)" }}>{meal.calories} kcal</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Weekly strip */}
+        <div style={{ padding: "0 16px 6px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>This week</span>
+        </div>
+        <div style={{ display: "flex", gap: "4px", alignItems: "flex-end", height: "44px", padding: "0 16px 14px" }}>
+          {weekData.map((day, i) => {
+            const v = day.calories;
+            const h = v ? Math.max(Math.round((v/targets.calories)*38), 2) : 2;
+            const isToday = i === weekData.length - 1;
+            return (
+              <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", height: "100%", justifyContent: "flex-end" }}>
+                <div style={{ width: "100%", height: `${h}px`, borderRadius: "2px 2px 0 0",
+                  background: v > targets.calories ? "var(--color-danger)" : v > 0 ? "var(--color-green)" : "var(--color-border)",
+                  opacity: isToday ? 1 : v > 0 ? 0.7 : 0.4 }} />
+                <div style={{ fontSize: "9px", color: isToday ? "var(--color-text)" : "var(--color-text-3)", fontWeight: isToday ? 600 : 400 }}>
+                  {dayLabel(day.date)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Compact history rows */}
+        <div style={{ padding: "0 16px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>History</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-3)" }}>Last 7 days</span>
+          </div>
+          {historyData.map(day => {
+            const pct = targets.calories > 0 ? Math.round((day.totals.calories / targets.calories) * 100) : 0;
+            const displayDate = new Date(day.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+            return (
+              <div key={day.date} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "0.5px solid var(--color-border)", fontSize: "11px" }}>
+                <span style={{ color: "var(--color-text-2)", minWidth: "70px" }}>{displayDate}</span>
+                <div style={{ flex: 1, height: "3px", background: "var(--color-surface-2)", borderRadius: "2px", margin: "0 8px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "var(--color-green)", borderRadius: "2px", width: `${Math.min(pct,100)}%` }} />
+                </div>
+                <span style={{ color: "var(--color-text-3)", minWidth: "50px", textAlign: "right" }}>
+                  {day.meals.length > 0 ? `${day.totals.calories} kcal` : 'No meals'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      )}
+
+      {!isLoading && !isMobile && (
       <div style={{
         display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px",
         animation: "fadeIn 0.3s ease forwards",
