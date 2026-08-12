@@ -175,6 +175,17 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState("");
   const [historyData, setHistoryData] = useState<DayHistory[]>([]);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileCheckDone, setMobileCheckDone] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState("breakfast");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    setMobileCheckDone(true);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -243,6 +254,73 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Wait until we know both the data AND the viewport size, so we never
+  // flash the desktop layout before the mobile check has run.
+  if (isLoading || !mobileCheckDone) {
+    return (
+      <>
+        <div className="loading-overlay" style={{ animation: "fadeOut 0.3s ease forwards", animationDelay: "0.5s" }}>
+          <img
+            src="/icons/icon-192.png"
+            alt="Nourishly"
+            width={56}
+            height={56}
+            style={{ borderRadius: 14 }}
+          />
+          <div style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 600,
+            fontSize: "1rem",
+            color: "var(--color-text-3)",
+          }}>
+            Loading your dashboard…
+          </div>
+          <div style={{
+            width: 40, height: 4, borderRadius: 2,
+            background: "var(--color-border)",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%", borderRadius: 2,
+              background: "var(--color-green)",
+              animation: "loadBar 1s ease infinite",
+            }} />
+          </div>
+        </div>
+
+        <style jsx>{`
+          .loading-overlay {
+            position: fixed;
+            inset: 0;
+            padding-left: 220px;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 10;
+          }
+          @media (max-width: 767px) {
+            .loading-overlay {
+              padding-left: 0;
+              bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+            }
+          }
+          @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+          }
+          @keyframes loadBar {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 100%; margin-left: 0; }
+            100% { width: 0%; margin-left: 100%; }
+          }
+        `}</style>
+      </>
+    );
+  }
+
   const remaining = getCaloriesRemaining(totals.calories, targets.calories);
   const greeting = getGreeting();
 
@@ -272,40 +350,192 @@ export default function DashboardPage() {
     };
   });
 
+  const todayLabel = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
     <>
-      {isLoading && (
-        <div className="loading-overlay" style={{ animation: "fadeOut 0.3s ease forwards", animationDelay: "0.5s" }}>
-          <img
-            src="/icons/icon-192.png"
-            alt="Nourishly"
-            width={56}
-            height={56}
-            style={{ borderRadius: 14 }}
-          />
-          <div style={{
-            fontFamily: "var(--font-display)",
-            fontWeight: 600,
-            fontSize: "1rem",
-            color: "var(--color-text-3)",
-          }}>
-            Loading your dashboard…
+      {isMobile && (
+      <div style={{ paddingBottom: "76px", maxWidth: "480px", margin: "0 auto" }}>
+        {/* Page header: greeting + date */}
+        <div style={{ padding: "2px 20px 14px" }}>
+          <div style={{ fontSize: "19px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>
+            {greeting}
           </div>
-          <div style={{
-            width: 40, height: 4, borderRadius: 2,
-            background: "var(--color-border)",
-            overflow: "hidden",
-          }}>
-            <div style={{
-              height: "100%", borderRadius: 2,
-              background: "var(--color-green)",
-              animation: "loadBar 1s ease infinite",
-            }} />
+          <div style={{ fontSize: "12px", color: "var(--color-text-3)", marginTop: "2px" }}>{todayLabel}</div>
+        </div>
+
+        {/* Hero card: today's progress + calorie ring + eaten/remaining/goal + streak */}
+        <div style={{ position: "relative", margin: "0 16px 14px", background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)", borderRadius: "20px", padding: "20px 22px", color: "white" }}>
+          {/* Streak badge, top right */}
+          <div style={{ position: "absolute", top: "14px", right: "14px", display: "flex",
+            alignItems: "center", gap: "4px", background: "rgba(255,255,255,0.18)",
+            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.25)", borderRadius: "999px",
+            padding: "5px 10px 5px 8px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFB84D"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "white" }}>{streakCount}</span>
+          </div>
+
+          <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
+            Today&apos;s progress
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <svg width="72" height="72" viewBox="0 0 72 72">
+                <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="8"/>
+                <circle cx="36" cy="36" r="30" fill="none" stroke="white" strokeWidth="8"
+                  strokeDasharray={`${(Math.min(caloriePctRaw,100)/100) * 188} 188`}
+                  strokeLinecap="round" transform="rotate(-90 36 36)" />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ fontSize: "19px", fontWeight: 600, lineHeight: 1 }}>{Math.round(caloriePctRaw)}%</div>
+                <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.7)", marginTop: "1px" }}>of goal</div>
+              </div>
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>Eaten</span>
+                <span style={{ fontSize: "15px", fontWeight: 600 }}>{totals.calories} kcal</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>Remaining</span>
+                <span style={{ fontSize: "15px", fontWeight: 600 }}>{Math.max(targets.calories - totals.calories, 0)} kcal</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>Goal</span>
+                <span style={{ fontSize: "15px", fontWeight: 600 }}>{targets.calories} kcal</span>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Macro cards */}
+        <div style={{ margin: "0 16px 14px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+          {[
+            { name: "Protein", val: totals.protein, goal: targets.protein, color: "#378ADD" },
+            { name: "Carbs", val: totals.carbs, goal: targets.carbs, color: "#EF9F27" },
+            { name: "Fat", val: totals.fat, goal: targets.fat, color: "#D85A30" },
+          ].map(macro => (
+            <div key={macro.name} style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "14px", padding: "12px" }}>
+              <div style={{ fontSize: "10px", color: "var(--color-text-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{macro.name}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "3px", margin: "4px 0 8px" }}>
+                <span style={{ fontSize: "17px", fontWeight: 600, color: "var(--color-text)" }}>{macro.val}</span>
+                <span style={{ fontSize: "11px", color: "var(--color-text-3)" }}>/{macro.goal}g</span>
+              </div>
+              <div style={{ height: "4px", background: "var(--color-surface-2)", borderRadius: "2px", overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: "2px", width: `${Math.min((macro.val/macro.goal)*100, 100)}%`, background: macro.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Food diary with pill tabs */}
+        <div style={{ margin: "0 16px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>Food diary</span>
+          </div>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+            {["Breakfast", "Lunch", "Dinner", "Snacks"].map(cat => (
+              <button key={cat} onClick={() => setActiveMobileTab(cat.toLowerCase())}
+                style={{ flex: 1, textAlign: "center", padding: "10px 0", minHeight: "40px", borderRadius: "20px", fontSize: "12px", fontWeight: 600, border: "none",
+                  background: activeMobileTab === cat.toLowerCase() ? "var(--color-green)" : "var(--color-surface-2)",
+                  color: activeMobileTab === cat.toLowerCase() ? "white" : "var(--color-text-2)" }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div>
+            {(mealsByCategory.find(c => c.key === activeMobileTab)?.meals ?? []).length === 0 ? (
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "16px", textAlign: "center" }}>
+                <div style={{ width: 44, height: 44, borderRadius: "12px", background: "var(--color-green-light)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-green-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                    <path d="M7 2v20" />
+                    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                  </svg>
+                </div>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", marginBottom: "3px" }}>
+                  Nothing logged yet
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--color-text-3)", marginBottom: "12px" }}>
+                  Generate a recipe or add a meal
+                </div>
+                <Link href="/generate" style={{
+                  display: "inline-block", background: "var(--color-green)", color: "white",
+                  border: "none", borderRadius: "10px", padding: "10px 20px", fontSize: "12px",
+                  fontWeight: 600, textDecoration: "none"
+                }}>
+                  + Add {activeMobileTab}
+                </Link>
+              </div>
+            ) : (
+              mealsByCategory.find(c => c.key === activeMobileTab)?.meals.map((meal, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderBottom: "0.5px solid var(--color-border)" }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "8px", background: "var(--color-green-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    🍽️
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "12px", fontWeight: 600 }}>{meal.recipe_title ?? "Logged meal"}</div>
+                  </div>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-green-dark)" }}>{meal.calories} kcal</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Weekly strip */}
+        <div style={{ margin: "0 16px 6px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>This week</span>
+        </div>
+        <div style={{ display: "flex", gap: "4px", alignItems: "flex-end", height: "44px", margin: "0 16px 14px" }}>
+          {weekData.map((day, i) => {
+            const v = day.calories;
+            const h = v ? Math.max(Math.round((v/targets.calories)*38), 2) : 2;
+            const isToday = i === weekData.length - 1;
+            return (
+              <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", height: "100%", justifyContent: "flex-end" }}>
+                <div style={{ width: "100%", height: `${h}px`, borderRadius: "2px 2px 0 0",
+                  background: v > targets.calories ? "var(--color-danger)" : v > 0 ? "var(--color-green)" : "var(--color-border)",
+                  opacity: isToday ? 1 : v > 0 ? 0.7 : 0.4 }} />
+                <div style={{ fontSize: "9px", color: isToday ? "var(--color-text)" : "var(--color-text-3)", fontWeight: isToday ? 600 : 400 }}>
+                  {dayLabel(day.date)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Compact history rows */}
+        <div style={{ margin: "0 16px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>History</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-3)" }}>Last 7 days</span>
+          </div>
+          {historyData.map(day => {
+            const pct = targets.calories > 0 ? Math.round((day.totals.calories / targets.calories) * 100) : 0;
+            const displayDate = new Date(day.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+            return (
+              <div key={day.date} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "0.5px solid var(--color-border)", fontSize: "11px" }}>
+                <span style={{ color: "var(--color-text-2)", minWidth: "70px" }}>{displayDate}</span>
+                <div style={{ flex: 1, height: "3px", background: "var(--color-surface-2)", borderRadius: "2px", margin: "0 8px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "var(--color-green)", borderRadius: "2px", width: `${Math.min(pct,100)}%` }} />
+                </div>
+                <span style={{ color: "var(--color-text-3)", minWidth: "50px", textAlign: "right" }}>
+                  {day.meals.length > 0 ? `${day.totals.calories} kcal` : 'No meals'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
       )}
 
-      {!isLoading && (
+      {!isMobile && (
       <div style={{
         display: "flex", flexDirection: "column", gap: "32px", maxWidth: "900px",
         animation: "fadeIn 0.3s ease forwards",
@@ -883,25 +1113,6 @@ export default function DashboardPage() {
       )}
 
       <style jsx>{`
-        .loading-overlay {
-          position: fixed;
-          inset: 0;
-          padding-left: 220px;
-          background: var(--color-bg);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          z-index: 10;
-        }
-        @media (max-width: 767px) {
-          .loading-overlay {
-            padding-left: 0;
-            top: 56px;
-            bottom: calc(58px + env(safe-area-inset-bottom, 0px));
-          }
-        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
@@ -917,15 +1128,6 @@ export default function DashboardPage() {
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
-        }
-        @keyframes fadeOut {
-          from { opacity: 1; }
-          to { opacity: 0; }
-        }
-        @keyframes loadBar {
-          0% { width: 0%; margin-left: 0; }
-          50% { width: 100%; margin-left: 0; }
-          100% { width: 0%; margin-left: 100%; }
         }
         .skeleton-card:hover {
           transform: none;

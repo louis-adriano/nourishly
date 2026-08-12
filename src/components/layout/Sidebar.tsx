@@ -82,18 +82,12 @@ export default function Sidebar() {
   async function handleLogOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    localStorage.removeItem("nourishly:lastGenerated");
     router.push("/login");
   }
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="mobile-topbar">
-        <Link href="/dashboard" className="mobile-topbar-logo">
-          <img src="/icons/icon-192.png" alt="Nourishly" width={26} height={26} style={{ borderRadius: 6, display: "block" }} />
-        </Link>
-      </div>
-
       {/* Mobile bottom tab bar */}
       <nav className="mobile-tabbar" aria-label="Primary">
         {TAB_BAR_LINKS.map(({ href, label, icon }) => {
@@ -106,7 +100,17 @@ export default function Sidebar() {
               aria-current={isActive ? "page" : undefined}
               className={`tabbar-item${isActive ? " tabbar-item--active" : ""}`}
             >
-              <span className="tabbar-icon">{icon}</span>
+              <span className="tabbar-icon" style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: "44px", height: "44px",
+                background: isActive
+                  ? "linear-gradient(180deg, rgba(232,240,235,0.95), rgba(232,240,235,0.7))"
+                  : "transparent",
+                boxShadow: isActive ? "inset 0 1px 1px rgba(255,255,255,0.8)" : "none",
+                borderRadius: "12px",
+              }}>
+                {icon}
+              </span>
             </Link>
           );
         })}
@@ -161,22 +165,7 @@ export default function Sidebar() {
               <Link
                 key={href}
                 href={href}
-                className={`sidebar-nav-link${isActive ? " sidebar-nav-link--active" : ""}`}
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 14px",
-                  borderRadius: "10px",
-                  textDecoration: "none",
-                  outline: "none",
-                  backgroundColor: isActive ? "var(--color-green-light)" : "transparent",
-                  color: isActive ? "var(--color-green)" : "var(--color-text-2)",
-                  fontWeight: isActive ? 600 : 500,
-                  fontSize: "0.875rem",
-                  transition: "background 0.15s ease, color 0.15s ease",
-                }}
+                className={`nav-link${isActive ? " active" : ""}`}
               >
                 <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                   {icon}
@@ -263,19 +252,31 @@ export default function Sidebar() {
           background: var(--color-surface-2);
         }
 
-        .sidebar-nav-link:hover {
-          background: var(--color-surface-2) !important;
+        :global(.nav-link) {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          text-decoration: none;
+          outline: none;
+          font-weight: 500;
+          font-size: 0.875rem;
+          color: var(--color-text-2);
+          background-color: transparent;
+          transition: background 0.15s ease;
         }
-        .sidebar-nav-link--active:hover {
-          background: var(--color-green-light) !important;
-          color: var(--color-green-dark) !important;
+        :global(.nav-link.active) {
+          background-color: var(--color-green-light);
+          color: var(--color-green-dark);
+          font-weight: 600;
         }
-        .sidebar-nav-link:active {
-          background: var(--color-surface-2) !important;
-        }
-        .sidebar-nav-link--active:active {
-          background: var(--color-green-light) !important;
-          color: var(--color-green-dark) !important;
+        @media (hover: hover) {
+          :global(.nav-link:not(.active):hover) {
+            background-color: var(--color-green-light);
+            opacity: 0.6;
+          }
         }
 
         .logout-btn {
@@ -299,65 +300,44 @@ export default function Sidebar() {
           color: var(--color-danger);
         }
 
-        .mobile-topbar {
-          display: none;
-        }
-
         .mobile-tabbar {
           display: none;
         }
 
         @media (max-width: 767px) {
-          .mobile-topbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-            z-index: 60;
-          }
-
-          .mobile-topbar-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-          }
-
           :global(.sidebar) {
             display: none !important;
           }
 
           .mobile-tabbar {
             display: flex;
-            align-items: stretch;
+            align-items: center;
             justify-content: space-around;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 58px;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.05);
+            left: 22px;
+            right: 22px;
+            bottom: max(16px, env(safe-area-inset-bottom, 0px));
+            height: 68px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.28));
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.65);
+            box-shadow:
+              inset 0 1px 1.5px rgba(255,255,255,0.9),
+              inset 0 -1px 1px rgba(0,0,0,0.05),
+              0 12px 32px rgba(0,0,0,0.16),
+              0 2px 8px rgba(0,0,0,0.08);
             z-index: 60;
           }
 
           .tabbar-item {
             flex: 1;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
+            min-width: 64px;
             text-decoration: none;
             outline: none;
           }
@@ -366,34 +346,29 @@ export default function Sidebar() {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
             border-radius: 12px;
             color: var(--color-text-3);
-            transition: background 0.15s ease, color 0.15s ease;
+            transition: background 0.15s ease, color 0.15s ease, padding 0.15s ease;
+          }
+
+          .tabbar-icon :global(svg) {
+            width: 24px;
+            height: 24px;
           }
 
           .tabbar-item--active .tabbar-icon {
-            background: var(--color-green-light);
             color: var(--color-green);
           }
 
-          .tabbar-item:active .tabbar-icon {
-            background: var(--color-surface-2);
-          }
-
           .tabbar-item--active:active .tabbar-icon {
-            background: var(--color-green-light);
             color: var(--color-green-dark);
           }
 
           @media (hover: hover) {
             .tabbar-item:hover .tabbar-icon {
-              background: var(--color-surface-2);
               color: var(--color-text-2);
             }
             .tabbar-item--active:hover .tabbar-icon {
-              background: var(--color-green-light);
               color: var(--color-green-dark);
             }
           }

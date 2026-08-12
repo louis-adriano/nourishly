@@ -32,8 +32,7 @@ export default function DashboardLayout({
         @media (max-width: 767px) {
           .main-content {
             margin-left: 0;
-            padding: 24px 16px calc(58px + env(safe-area-inset-bottom, 0px) + 24px);
-            padding-top: calc(56px + 24px);
+            padding: 24px 16px calc(68px + max(16px, env(safe-area-inset-bottom, 0px)) + 24px);
             max-width: 100%;
           }
         }
