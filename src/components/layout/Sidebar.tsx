@@ -102,15 +102,14 @@ export default function Sidebar() {
             >
               <span className="tabbar-icon" style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: isActive ? "var(--color-green-light)" : "transparent",
+                width: "44px", height: "44px",
+                background: isActive
+                  ? "linear-gradient(180deg, rgba(232,240,235,0.95), rgba(232,240,235,0.7))"
+                  : "transparent",
+                boxShadow: isActive ? "inset 0 1px 1px rgba(255,255,255,0.8)" : "none",
                 borderRadius: "12px",
-                padding: "4px 14px",
               }}>
                 {icon}
-              </span>
-              <span style={{ fontSize: "0.7rem", fontWeight: isActive ? 600 : 400,
-                color: isActive ? "var(--color-green-dark)" : "var(--color-text-3)" }}>
-                {label}
               </span>
             </Link>
           );
@@ -315,28 +314,30 @@ export default function Sidebar() {
             align-items: center;
             justify-content: space-around;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: calc(56px + env(safe-area-inset-bottom));
-            padding-bottom: env(safe-area-inset-bottom);
-            padding-left: max(env(safe-area-inset-left), 8px);
-            padding-right: max(env(safe-area-inset-right), 8px);
-            background: white;
-            border-top: 1px solid var(--color-border);
+            left: 22px;
+            right: 22px;
+            bottom: max(16px, env(safe-area-inset-bottom, 0px));
+            height: 68px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.28));
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.65);
+            box-shadow:
+              inset 0 1px 1.5px rgba(255,255,255,0.9),
+              inset 0 -1px 1px rgba(0,0,0,0.05),
+              0 12px 32px rgba(0,0,0,0.16),
+              0 2px 8px rgba(0,0,0,0.08);
             z-index: 60;
           }
 
           .tabbar-item {
             flex: 1;
+            height: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 4px;
             min-width: 64px;
-            min-height: 56px;
-            padding: 6px 8px;
             text-decoration: none;
             outline: none;
           }

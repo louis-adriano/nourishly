@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import AuthMobileHeader from '@/components/auth/AuthMobileHeader'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -68,6 +69,13 @@ export default function LoginPage() {
       </div>
 
       <div className="panel-right">
+        <AuthMobileHeader
+          heading="Welcome back"
+          subtextPrefix="Don't have an account?"
+          subtextLinkText="Sign up"
+          subtextLinkHref="/register"
+        />
+        <div className="mobile-form-shell">
         <div className="form-card">
           <div className="form-header">
             <h1 className="form-title">Welcome back</h1>
@@ -128,6 +136,7 @@ export default function LoginPage() {
             {googleLoading ? 'Redirecting...' : 'Continue with Google'}
           </button>
         </div>
+        </div>
       </div>
 
       <style jsx>{`
@@ -136,7 +145,7 @@ export default function LoginPage() {
         .panel-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; }
         .panel-blob--1 { width: 380px; height: 380px; background: #1a5c38; top: -100px; right: -80px; }
         .panel-blob--2 { width: 300px; height: 300px; background: #4aaa72; bottom: -60px; left: -60px; }
-        .panel-watermark { position: absolute; width: 560px; height: 560px; right: -160px; bottom: -140px; opacity: 0.14; pointer-events: none; user-select: none; }
+        .panel-watermark { position: absolute; width: 560px; height: 560px; right: -160px; bottom: -140px; opacity: 0.14; mix-blend-mode: luminosity; pointer-events: none; user-select: none; }
         .panel-content { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 44px; width: 100%; }
         .panel-logo { display: flex; align-items: center; gap: 10px; }
         .panel-logo-text { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
@@ -147,6 +156,7 @@ export default function LoginPage() {
         .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
         .panel-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 32px; }
+        .mobile-form-shell { width: 100%; }
         .form-card { width: 100%; max-width: 400px; }
         .form-header { margin-bottom: 32px; }
         .form-title { font-size: 26px; font-weight: 800; color: #1a3a28; letter-spacing: -0.5px; margin: 0 0 8px; }
@@ -171,10 +181,18 @@ export default function LoginPage() {
         .google-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid #d4e6da; background: #fff; color: #1a3a28; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.15s ease, border-color 0.15s ease; box-sizing: border-box; }
         .google-btn:hover:not(:disabled) { background: #f5f9f6; border-color: #b8d8c4; }
         .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        @media (max-width: 768px) { .panel-left { display: none; } }
-        @media (max-width: 480px) {
-          .panel-right { padding: 32px 20px; }
-          .form-title { font-size: 22px; }
+        @media (max-width: 767px) {
+          .panel-left { display: none; }
+          .panel-right { display: block; padding: 0; }
+          .form-header { display: none; }
+          .mobile-form-shell {
+            position: relative;
+            z-index: 2;
+            margin-top: -24px;
+            border-radius: 24px 24px 0 0;
+            background: var(--color-bg, #F7F5F0);
+            padding: 32px 28px 40px;
+          }
         }
       `}</style>
     </div>
