@@ -365,7 +365,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Hero card: today's progress + calorie ring + eaten/remaining/goal + streak */}
-        <div style={{ margin: "0 16px 14px", background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)", borderRadius: "20px", padding: "20px 22px", color: "white" }}>
+        <div style={{ position: "relative", margin: "0 16px 14px", background: "linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%)", borderRadius: "20px", padding: "20px 22px", color: "white" }}>
+          {/* Streak badge, top right */}
+          <div style={{ position: "absolute", top: "14px", right: "14px", display: "flex",
+            alignItems: "center", gap: "4px", background: "rgba(255,255,255,0.18)",
+            backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.25)", borderRadius: "999px",
+            padding: "5px 10px 5px 8px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFB84D"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "white" }}>{streakCount}</span>
+          </div>
+
           <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
             Today&apos;s progress
           </div>
