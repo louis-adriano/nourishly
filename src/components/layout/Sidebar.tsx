@@ -88,13 +88,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="mobile-topbar">
-        <Link href="/dashboard" className="mobile-topbar-logo">
-          <img src="/icons/icon-192.png" alt="Nourishly" width={26} height={26} style={{ borderRadius: 6, display: "block" }} />
-        </Link>
-      </div>
-
       {/* Mobile bottom tab bar */}
       <nav className="mobile-tabbar" aria-label="Primary">
         {TAB_BAR_LINKS.map(({ href, label, icon }) => {
@@ -107,7 +100,18 @@ export default function Sidebar() {
               aria-current={isActive ? "page" : undefined}
               className={`tabbar-item${isActive ? " tabbar-item--active" : ""}`}
             >
-              <span className="tabbar-icon">{icon}</span>
+              <span className="tabbar-icon" style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: isActive ? "var(--color-green-light)" : "transparent",
+                borderRadius: "12px",
+                padding: "4px 14px",
+              }}>
+                {icon}
+              </span>
+              <span style={{ fontSize: "0.7rem", fontWeight: isActive ? 600 : 400,
+                color: isActive ? "var(--color-green-dark)" : "var(--color-text-3)" }}>
+                {label}
+              </span>
             </Link>
           );
         })}
@@ -297,65 +301,42 @@ export default function Sidebar() {
           color: var(--color-danger);
         }
 
-        .mobile-topbar {
-          display: none;
-        }
-
         .mobile-tabbar {
           display: none;
         }
 
         @media (max-width: 767px) {
-          .mobile-topbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-            z-index: 60;
-          }
-
-          .mobile-topbar-logo {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-          }
-
           :global(.sidebar) {
             display: none !important;
           }
 
           .mobile-tabbar {
             display: flex;
-            align-items: stretch;
+            align-items: center;
             justify-content: space-around;
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 58px;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.05);
+            height: calc(56px + env(safe-area-inset-bottom));
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: max(env(safe-area-inset-left), 8px);
+            padding-right: max(env(safe-area-inset-right), 8px);
+            background: white;
+            border-top: 1px solid var(--color-border);
             z-index: 60;
           }
 
           .tabbar-item {
             flex: 1;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 4px;
+            min-width: 64px;
+            min-height: 56px;
+            padding: 6px 8px;
             text-decoration: none;
             outline: none;
           }
@@ -364,34 +345,29 @@ export default function Sidebar() {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 40px;
-            height: 40px;
             border-radius: 12px;
             color: var(--color-text-3);
-            transition: background 0.15s ease, color 0.15s ease;
+            transition: background 0.15s ease, color 0.15s ease, padding 0.15s ease;
+          }
+
+          .tabbar-icon :global(svg) {
+            width: 24px;
+            height: 24px;
           }
 
           .tabbar-item--active .tabbar-icon {
-            background: var(--color-green-light);
             color: var(--color-green);
           }
 
-          .tabbar-item:active .tabbar-icon {
-            background: var(--color-surface-2);
-          }
-
           .tabbar-item--active:active .tabbar-icon {
-            background: var(--color-green-light);
             color: var(--color-green-dark);
           }
 
           @media (hover: hover) {
             .tabbar-item:hover .tabbar-icon {
-              background: var(--color-surface-2);
               color: var(--color-text-2);
             }
             .tabbar-item--active:hover .tabbar-icon {
-              background: var(--color-green-light);
               color: var(--color-green-dark);
             }
           }
