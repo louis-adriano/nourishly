@@ -157,7 +157,7 @@ export default function LoginPage() {
         @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
         .panel-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 32px; }
         .mobile-form-shell { width: 100%; }
-        .form-card { width: 100%; max-width: 400px; }
+        .form-card { width: 100%; max-width: 400px; margin: 0 auto; }
         .form-header { margin-bottom: 32px; }
         .form-title { font-size: 26px; font-weight: 800; color: #1a3a28; letter-spacing: -0.5px; margin: 0 0 8px; }
         .form-subtitle { font-size: 14px; color: #4a6b58; margin: 0; }
