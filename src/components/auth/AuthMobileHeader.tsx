@@ -17,7 +17,7 @@ export default function AuthMobileHeader({
 }) {
   return (
     <div className={`auth-mobile-header${compact ? ' auth-mobile-header--compact' : ''}`}>
-      <img src="/icons/icon-512.png" alt="" className="header-watermark" />
+      <img src="/logo-transparent.png" alt="" className="header-watermark" />
       <div className="auth-mobile-header-content">
         <div className="auth-mobile-header-logo">
           <img src="/icons/icon-192.png" alt="" width={20} height={20} style={{ borderRadius: 6, display: 'block' }} />
@@ -58,7 +58,6 @@ export default function AuthMobileHeader({
             right: -80px;
             bottom: -80px;
             opacity: 0.14;
-            mix-blend-mode: luminosity;
             pointer-events: none;
             user-select: none;
           }
