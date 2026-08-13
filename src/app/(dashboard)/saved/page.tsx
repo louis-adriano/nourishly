@@ -232,18 +232,15 @@ export default function SavedPage() {
     <div style={{ fontFamily: "var(--font-body), system-ui, sans-serif" }}>
 
       {/* Header */}
-      <div className="card no-hover" style={{ padding: "24px 28px", marginBottom: 24 }}>
-        <h1 style={{
+      <div className="card no-hover saved-header-card" style={{ padding: "24px 28px", marginBottom: 24 }}>
+        <h1 className="saved-header-title" style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontWeight: 800,
-          fontSize: "2rem",
           color: "var(--color-text)",
           margin: "0 0 4px",
-          letterSpacing: "-0.03em",
         }}>
           Saved Recipes
         </h1>
-        <p style={{ color: "var(--color-text-3)", fontSize: "0.875rem", margin: 0 }}>
+        <p className="saved-header-sub" style={{ color: "var(--color-text-3)", fontSize: "0.875rem", margin: 0 }}>
           {items.length} recipe{items.length !== 1 ? "s" : ""} saved
         </p>
       </div>
@@ -367,6 +364,25 @@ export default function SavedPage() {
           .saved-grid {
             grid-template-columns: 1fr;
             gap: 16px;
+          }
+          .saved-header-card {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 2px 0 14px;
+            margin-bottom: 12px;
+          }
+          .saved-header-title {
+            font-size: 19px !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.3px !important;
+            margin: 0 0 2px !important;
+          }
+          .saved-header-sub {
+            font-size: 12px !important;
+            color: var(--color-green) !important;
+            font-weight: 600 !important;
+            margin: 0 !important;
           }
         }
       `}</style>

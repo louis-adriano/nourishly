@@ -44,11 +44,17 @@ export default function AuthMobileHeader({
             display: block;
             overflow: hidden;
             background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%);
-            padding: max(48px, calc(env(safe-area-inset-top, 0px) + 20px)) 28px 40px 28px;
+            padding-top: calc(env(safe-area-inset-top) + 20px);
+            padding-right: 28px;
+            padding-bottom: 40px;
+            padding-left: 28px;
           }
 
           .auth-mobile-header--compact {
-            padding: max(40px, calc(env(safe-area-inset-top, 0px) + 16px)) 28px 32px 28px;
+            padding-top: calc(env(safe-area-inset-top) + 20px);
+            padding-right: 28px;
+            padding-bottom: 32px;
+            padding-left: 28px;
           }
 
           .header-watermark {
