@@ -135,8 +135,12 @@ export default function RecipeDetailPage() {
     setError(null);
 
     fetch(`/api/recipes/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load recipe (${res.status})`);
+      .then(async (res) => {
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => null);
+          console.error('[recipe fetch] failed:', res.status, errBody);
+          throw new Error(`Failed to load recipe (${res.status})`);
+        }
         return res.json();
       })
       .then((data) => {
