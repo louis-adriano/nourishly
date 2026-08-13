@@ -158,32 +158,32 @@ export default function RecipeDetailPage() {
 
   // ── Check if already logged today on mount ─────────────────────────────────
   useEffect(() => {
-    if (!recipe) return;
+    if (!id) return;
     fetch(`/api/meal-logs?date=${getLocalDateString()}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.logs?.some((log: { recipe_id: string }) => log.recipe_id === recipe.id)) {
+        if (data?.logs?.some((log: { recipe_id: string }) => log.recipe_id === id)) {
           setCookState("logged");
         }
       });
-  }, [recipe]);
+  }, [id]);
 
   // ── Check if already saved on mount ─────────────────────────────────────────
   useEffect(() => {
-    if (!recipe) return;
+    if (!id) return;
     fetch(`/api/saved-recipes`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.recipes?.some((item: { recipe_id: string }) => item.recipe_id === recipe.id)) {
+        if (data?.recipes?.some((item: { recipe_id: string }) => item.recipe_id === id)) {
           setSaveState("saved");
         }
       });
-  }, [recipe]);
+  }, [id]);
 
   // ── Restore chat history + remaining count on mount ─────────────────────────
   useEffect(() => {
-    if (!recipe) return;
-    fetch(`/api/substitutions?recipe_id=${recipe.id}`)
+    if (!id) return;
+    fetch(`/api/substitutions?recipe_id=${id}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.messages?.length) {
@@ -196,7 +196,7 @@ export default function RecipeDetailPage() {
         }
         if (data?.remaining !== undefined) setRemaining(data.remaining);
       });
-  }, [recipe]);
+  }, [id]);
 
   // ── Scroll chat to bottom on new messages ───────────────────────────────────
   useEffect(() => {
