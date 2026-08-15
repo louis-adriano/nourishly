@@ -21,6 +21,35 @@
   --color-danger-light:   #FDECEA;
 }
 
+/* ── Layout-critical show/hide (loads before component styled-jsx) ───────────── */
+
+.auth-mobile-header {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .auth-mobile-header {
+    display: block;
+  }
+}
+
+.sidebar-desktop-aside {
+  display: block;
+}
+
+.mobile-tabbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sidebar-desktop-aside {
+    display: none !important;
+  }
+  .mobile-tabbar {
+    display: flex;
+  }
+}
+
 /* ── Base ───────────────────────────────────────────────────────────────────── */
 
 html {

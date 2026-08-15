@@ -116,7 +116,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <aside className="sidebar" style={{
+      <aside className="sidebar sidebar-desktop-aside" style={{
         position: "fixed",
         top: 0,
         left: 0,
@@ -300,17 +300,8 @@ export default function Sidebar() {
           color: var(--color-danger);
         }
 
-        .mobile-tabbar {
-          display: none;
-        }
-
         @media (max-width: 767px) {
-          :global(.sidebar) {
-            display: none !important;
-          }
-
           .mobile-tabbar {
-            display: flex;
             align-items: center;
             justify-content: space-around;
             position: fixed;

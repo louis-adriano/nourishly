@@ -140,8 +140,8 @@ export default function LoginPage() {
       </div>
 
       <style jsx>{`
-        .page { display: flex; min-height: 100dvh; width: 100%; padding: 0; font-family: 'DM Sans', 'Nunito', sans-serif; background: var(--color-green, #4A7C59); }
-        .panel-left { position: relative; width: 42%; background: #2C7A4B; display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
+        .page { display: flex; min-height: 100dvh; width: 100%; padding: 0; font-family: 'DM Sans', 'Nunito', sans-serif; background: #f7faf8; }
+        .panel-left { position: relative; width: 50%; background: #2C7A4B; display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
         .panel-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; }
         .panel-blob--1 { width: 380px; height: 380px; background: #1a5c38; top: -100px; right: -80px; }
         .panel-blob--2 { width: 300px; height: 300px; background: #4aaa72; bottom: -60px; left: -60px; }
@@ -182,7 +182,7 @@ export default function LoginPage() {
         .google-btn:hover:not(:disabled) { background: #f5f9f6; border-color: #b8d8c4; }
         .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         @media (max-width: 767px) {
-          .page { flex-direction: column; }
+          .page { flex-direction: column; background: var(--color-green-dark); }
           .panel-left { display: none; }
           .panel-right { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; padding: 0; min-height: 100dvh; }
           .form-header { display: none; }

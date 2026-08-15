@@ -34,14 +34,9 @@ export default function AuthMobileHeader({
       </div>
 
       <style jsx>{`
-        .auth-mobile-header {
-          display: none;
-        }
-
         @media (max-width: 767px) {
           .auth-mobile-header {
             position: relative;
-            display: block;
             overflow: hidden;
             background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dark) 100%);
             padding-top: calc(env(safe-area-inset-top) + 20px);
