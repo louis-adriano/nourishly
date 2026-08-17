@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getLocalDateString } from "@/lib/date";
@@ -88,6 +88,7 @@ function chipStyle(active: boolean) {
 }
 
 export default function GeneratePage() {
+  const router = useRouter();
   const [pageState, setPageState] = useState<PageState>(() => {
     if (typeof window === "undefined") return "idle"; // SSR guard
     try {
@@ -104,6 +105,19 @@ export default function GeneratePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [previousTitles, setPreviousTitles] = useState<string[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetch("/api/saved-recipes")
@@ -190,9 +204,7 @@ export default function GeneratePage() {
   const [dietaryNotes, setDietaryNotes] = useState("");
   const [cuisineNotes, setCuisineNotes] = useState("");
 
-  async function openPrefs() {
-    setPrefsOpen(true);
-    setSaveSuccess(false);
+  async function loadPrefs() {
     setLoadingPrefs(true);
     try {
       const supabase = createClient();
@@ -236,6 +248,22 @@ export default function GeneratePage() {
       setLoadingPrefs(false);
     }
   }
+
+  async function openPrefs() {
+    setPrefsOpen(true);
+    setSaveSuccess(false);
+    await loadPrefs();
+  }
+
+  // Eagerly load prefs on mobile so the summary card's chips are populated
+  // without requiring the user to open the modal first.
+  const prefsEagerLoaded = useRef(false);
+  useEffect(() => {
+    if (isMobile && !prefsEagerLoaded.current) {
+      prefsEagerLoaded.current = true;
+      loadPrefs();
+    }
+  }, [isMobile]);
 
   function toggleDiet(val: string) {
     setModalDiet(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
@@ -298,6 +326,338 @@ export default function GeneratePage() {
     setRecipes([]);
     localStorage.removeItem(LAST_GENERATED_KEY);
     handleGenerate();
+  }
+
+  // Shared preferences-modal content — reused by both the desktop centered
+  // popup and the mobile bottom sheet; only the outer container differs.
+  const prefsModalContent = (
+    <>
+      {/* Modal header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <h2 style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: "1.25rem",
+          color: "var(--color-text)",
+          margin: 0,
+          letterSpacing: "-0.02em",
+        }}>
+          Edit Preferences
+        </h2>
+        <button
+          type="button"
+          onClick={() => setPrefsOpen(false)}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: "1.4rem",
+            cursor: "pointer",
+            color: "var(--color-text-3)",
+            lineHeight: 1,
+            padding: "4px 8px",
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {loadingPrefs ? (
+        <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
+          Loading…
+        </div>
+      ) : (
+        <>
+          {/* Health Goal */}
+          <div style={{ marginBottom: "24px" }}>
+            <p style={SECTION_LABEL_STYLE}>Health Goal</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {HEALTH_GOALS.map(goal => (
+                <button key={goal} type="button" onClick={() => setModalGoal(goal)} style={chipStyle(modalGoal === goal)}>
+                  {goal}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Dietary Restrictions */}
+          <div style={{ marginBottom: "24px" }}>
+            <p style={SECTION_LABEL_STYLE}>Dietary Restrictions</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {DIETARY_OPTIONS.map(opt => (
+                <button key={opt} type="button" onClick={() => toggleDiet(opt)} style={chipStyle(modalDiet.includes(opt))}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+           <div style={{ marginBottom: "16px" }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+              Anything else? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+            </label>
+            <textarea
+              value={dietaryNotes}
+              onChange={e => setDietaryNotes(e.target.value)}
+              placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar..."
+              rows={2}
+              style={{
+                width: "100%",
+                borderRadius: "10px",
+                border: "1.5px solid var(--color-border)",
+                padding: "10px 14px",
+                fontSize: "0.82rem",
+                color: "var(--color-text)",
+                fontFamily: "var(--font-body), system-ui, sans-serif",
+                resize: "none",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Cuisine Preferences */}
+          <div style={{ marginBottom: "28px" }}>
+            <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {CUISINE_OPTIONS.map(opt => (
+                <button key={opt} type="button" onClick={() => toggleCuisine(opt)} style={chipStyle(modalCuisine.includes(opt))}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+           <div style={{ marginBottom: "20px" }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
+              Any other cuisine notes? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
+            </label>
+            <textarea
+              value={cuisineNotes}
+              onChange={e => setCuisineNotes(e.target.value)}
+              placeholder="e.g. I love spicy food, no fusion cuisine, street food style..."
+              rows={2}
+              style={{
+                width: "100%",
+                borderRadius: "10px",
+                border: "1.5px solid var(--color-border)",
+                padding: "10px 14px",
+                fontSize: "0.82rem",
+                color: "var(--color-text)",
+                fontFamily: "var(--font-body), system-ui, sans-serif",
+                resize: "none",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Save */}
+          <button
+            type="button"
+            onClick={savePrefs}
+            disabled={saving || !modalGoal}
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: "12px",
+              border: "none",
+              background: saveSuccess ? "var(--color-green-dark)" : "var(--color-green)",
+              color: "white",
+              fontSize: "0.95rem",
+              fontWeight: 700,
+              cursor: saving || !modalGoal ? "not-allowed" : "pointer",
+              opacity: saving || !modalGoal ? 0.7 : 1,
+              fontFamily: "var(--font-body), system-ui, sans-serif",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {saveSuccess ? "✓ Saved!" : saving ? "Saving…" : "Save Preferences"}
+          </button>
+        </>
+      )}
+    </>
+  );
+
+  if (!mounted) {
+    return null;
+  }
+
+  if (isMobile) {
+    const prefChips: string[] = [];
+    if (modalGoal) prefChips.push(modalGoal);
+    if (modalDiet[0]) prefChips.push(modalDiet[0]);
+    if (modalCuisine[0]) prefChips.push(modalCuisine[0]);
+
+    return (
+      <div style={{ paddingBottom: "16px" }}>
+
+        {/* Compact top bar */}
+        <div style={{ padding: "0 16px 12px" }}>
+          <span style={{ fontSize: "19px", fontWeight: 700, color: "var(--color-text)", fontFamily: "var(--font-display)" }}>
+            Generate
+          </span>
+          <div style={{ fontSize: "12px", color: "var(--color-green)", fontWeight: 600, marginTop: "2px" }}>
+            Tap generate to get started
+          </div>
+        </div>
+
+        {/* Preferences summary card */}
+        <div style={{ margin: "0 16px 16px", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "14px", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+            {prefChips.length > 0 ? (
+              prefChips.map(chip => (
+                <span key={chip} style={{
+                  background: "var(--color-green-light)", color: "var(--color-green-dark)",
+                  borderRadius: "20px", padding: "4px 10px", fontSize: "0.7rem", fontWeight: 600,
+                }}>
+                  {chip}
+                </span>
+              ))
+            ) : (
+              <span style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>No preferences set yet</span>
+            )}
+          </div>
+          <button onClick={openPrefs} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-green)", background: "none", border: "none", flexShrink: 0, marginLeft: "10px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m6.36 6.36l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m6.36-6.36l4.24-4.24"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+
+        {/* Content area */}
+        {pageState === "idle" && (
+          <div style={{ padding: "0 16px" }}>
+            <div style={{
+              background: "var(--color-surface)", border: "1px solid var(--color-border)",
+              borderRadius: "20px", padding: "36px 24px", textAlign: "center",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+            }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "18px", background: "var(--color-green-light)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 18px", fontSize: "28px"
+              }}>
+                🍳
+              </div>
+              <div style={{ fontSize: "17px", fontWeight: 700, color: "var(--color-text)",
+                fontFamily: "var(--font-display)", marginBottom: "6px" }}>
+                What&apos;s cooking today?
+              </div>
+              <div style={{ fontSize: "12.5px", color: "var(--color-text-3)", lineHeight: 1.6,
+                marginBottom: "22px", maxWidth: "230px", margin: "0 auto 22px" }}>
+                Generate personalised recipes based on your health goals and dietary preferences.
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "center", gap: "8px",
+                marginBottom: "24px", flexWrap: "wrap" }}>
+                <span style={{ background: "var(--color-green-light)", color: "var(--color-green-dark)",
+                  borderRadius: "20px", padding: "6px 12px", fontSize: "10.5px", fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: "4px" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                  </svg>
+                  Goal-aligned
+                </span>
+                <span style={{ background: "var(--color-green-light)", color: "var(--color-green-dark)",
+                  borderRadius: "20px", padding: "6px 12px", fontSize: "10.5px", fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: "4px" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                  </svg>
+                  Diet-aware
+                </span>
+                <span style={{ background: "var(--color-green-light)", color: "var(--color-green-dark)",
+                  borderRadius: "20px", padding: "6px 12px", fontSize: "10.5px", fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: "4px" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                  Instant
+                </span>
+              </div>
+
+              <button onClick={handleGenerate} style={{
+                width: "100%", background: "var(--color-green)", color: "white",
+                border: "none", borderRadius: "12px", padding: "15px",
+                fontSize: "14px", fontWeight: 700, display: "flex",
+                alignItems: "center", justifyContent: "center", gap: "8px"
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
+                </svg>
+                Generate Recipes
+              </button>
+            </div>
+          </div>
+        )}
+        {pageState === "restoring" && <div style={{ padding: "0 16px" }}><LoadingState mode="restoring" /></div>}
+        {pageState === "loading"   && <div style={{ padding: "0 16px" }}><LoadingState /></div>}
+        {pageState === "error"     && <div style={{ padding: "0 16px" }}><ErrorState message={errorMsg ?? "Something went wrong"} onRetry={handleGenerate} /></div>}
+        {pageState === "done" && (
+          <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+            {recipes.map((recipe, i) => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                index={i}
+                onClick={() => router.push(`/generate/${recipe.id}`)}
+                isSaved={savedIds.has(recipe.id)}
+                onToggleSave={() => handleToggleSave(recipe.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Generate button — inline at bottom of scroll (done: generate again, error: retry) */}
+        {(pageState === "done" || pageState === "error") && (
+          <div style={{ padding: "16px" }}>
+            <button
+              onClick={pageState === "done" ? handleGenerateAgain : handleGenerate}
+              style={{
+                width: "100%", background: "var(--color-green)", color: "white",
+                border: "none", borderRadius: "12px", padding: "15px",
+                fontSize: "14px", fontWeight: 700, display: "flex",
+                alignItems: "center", justifyContent: "center", gap: "8px",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
+              </svg>
+              {pageState === "done" ? "Generate Again" : "Generate Recipes"}
+            </button>
+          </div>
+        )}
+
+        {/* Preferences modal — full-screen bottom sheet on mobile */}
+        {prefsOpen && (
+          <div
+            onClick={(e) => { if (e.target === e.currentTarget) setPrefsOpen(false); }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.4)",
+              zIndex: 100,
+            }}
+          >
+            <div style={{
+              position: "fixed",
+              inset: "auto 0 0 0",
+              background: "var(--color-surface)",
+              borderRadius: "20px 20px 0 0",
+              padding: "0 24px 24px",
+              width: "100%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.15)",
+            }}>
+              <div style={{ width: 36, height: 4, background: "var(--color-border)", borderRadius: 2, margin: "10px auto 4px" }} />
+              {prefsModalContent}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -431,149 +791,7 @@ export default function GeneratePage() {
             overflowY: "auto",
             boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
           }}>
-            {/* Modal header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-              <h2 style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                color: "var(--color-text)",
-                margin: 0,
-                letterSpacing: "-0.02em",
-              }}>
-                Edit Preferences
-              </h2>
-              <button
-                type="button"
-                onClick={() => setPrefsOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "1.4rem",
-                  cursor: "pointer",
-                  color: "var(--color-text-3)",
-                  lineHeight: 1,
-                  padding: "4px 8px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            {loadingPrefs ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "var(--color-text-3)", fontSize: "0.9rem" }}>
-                Loading…
-              </div>
-            ) : (
-              <>
-                {/* Health Goal */}
-                <div style={{ marginBottom: "24px" }}>
-                  <p style={SECTION_LABEL_STYLE}>Health Goal</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {HEALTH_GOALS.map(goal => (
-                      <button key={goal} type="button" onClick={() => setModalGoal(goal)} style={chipStyle(modalGoal === goal)}>
-                        {goal}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Dietary Restrictions */}
-                <div style={{ marginBottom: "24px" }}>
-                  <p style={SECTION_LABEL_STYLE}>Dietary Restrictions</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {DIETARY_OPTIONS.map(opt => (
-                      <button key={opt} type="button" onClick={() => toggleDiet(opt)} style={chipStyle(modalDiet.includes(opt))}>
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                 <div style={{ marginBottom: "16px" }}>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
-                    Anything else? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
-                  </label>
-                  <textarea
-                    value={dietaryNotes}
-                    onChange={e => setDietaryNotes(e.target.value)}
-                    placeholder="e.g. I'm allergic to shellfish, I avoid processed sugar..."
-                    rows={2}
-                    style={{
-                      width: "100%",
-                      borderRadius: "10px",
-                      border: "1.5px solid var(--color-border)",
-                      padding: "10px 14px",
-                      fontSize: "0.82rem",
-                      color: "var(--color-text)",
-                      fontFamily: "var(--font-body), system-ui, sans-serif",
-                      resize: "none",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-
-                {/* Cuisine Preferences */}
-                <div style={{ marginBottom: "28px" }}>
-                  <p style={SECTION_LABEL_STYLE}>Cuisine Preferences</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {CUISINE_OPTIONS.map(opt => (
-                      <button key={opt} type="button" onClick={() => toggleCuisine(opt)} style={chipStyle(modalCuisine.includes(opt))}>
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                 <div style={{ marginBottom: "20px" }}>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-2)", display: "block", marginBottom: "6px" }}>
-                    Any other cuisine notes? <span style={{ fontWeight: 400, color: "var(--color-text-3)" }}>(optional)</span>
-                  </label>
-                  <textarea
-                    value={cuisineNotes}
-                    onChange={e => setCuisineNotes(e.target.value)}
-                    placeholder="e.g. I love spicy food, no fusion cuisine, street food style..."
-                    rows={2}
-                    style={{
-                      width: "100%",
-                      borderRadius: "10px",
-                      border: "1.5px solid var(--color-border)",
-                      padding: "10px 14px",
-                      fontSize: "0.82rem",
-                      color: "var(--color-text)",
-                      fontFamily: "var(--font-body), system-ui, sans-serif",
-                      resize: "none",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-
-                {/* Save */}
-                <button
-                  type="button"
-                  onClick={savePrefs}
-                  disabled={saving || !modalGoal}
-                  style={{
-                    width: "100%",
-                    padding: "14px",
-                    borderRadius: "12px",
-                    border: "none",
-                    background: saveSuccess ? "var(--color-green-dark)" : "var(--color-green)",
-                    color: "white",
-                    fontSize: "0.95rem",
-                    fontWeight: 700,
-                    cursor: saving || !modalGoal ? "not-allowed" : "pointer",
-                    opacity: saving || !modalGoal ? 0.7 : 1,
-                    fontFamily: "var(--font-body), system-ui, sans-serif",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  {saveSuccess ? "✓ Saved!" : saving ? "Saving…" : "Save Preferences"}
-                </button>
-              </>
-            )}
+            {prefsModalContent}
           </div>
         </div>
       )}

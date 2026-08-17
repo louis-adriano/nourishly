@@ -243,8 +243,8 @@ export default function RegisterPage() {
       </div>
 
       <style jsx>{`
-        .page { display: flex; min-height: 100vh; font-family: 'DM Sans', 'Nunito', sans-serif; background: #f7faf8; }
-        .panel-left { position: relative; width: 42%; background: #2C7A4B; display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
+        .page { display: flex; min-height: 100dvh; width: 100%; padding: 0; font-family: 'DM Sans', 'Nunito', sans-serif; background: #f7faf8; }
+        .panel-left { position: relative; width: 50%; background: #2C7A4B; display: flex; align-items: stretch; overflow: hidden; flex-shrink: 0; }
         .panel-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; }
         .panel-blob--1 { width: 380px; height: 380px; background: #1a5c38; top: -100px; right: -80px; }
         .panel-blob--2 { width: 300px; height: 300px; background: #4aaa72; bottom: -60px; left: -60px; }
@@ -260,7 +260,7 @@ export default function RegisterPage() {
         @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
         .panel-right { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 32px; }
         .mobile-form-shell { width: 100%; }
-        .form-card { width: 100%; max-width: 400px; }
+        .form-card { width: 100%; max-width: 400px; margin: 0 auto; }
         .form-header { margin-bottom: 32px; }
         .form-title { font-size: 26px; font-weight: 800; color: #1a3a28; letter-spacing: -0.5px; margin: 0 0 8px; }
         .form-subtitle { font-size: 14px; color: #7a9a88; margin: 0; }
@@ -269,7 +269,7 @@ export default function RegisterPage() {
         .form { display: flex; flex-direction: column; gap: 18px; }
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field-label { font-size: 13px; font-weight: 600; color: #2d4a3a; letter-spacing: 0.1px; }
-        .field-input { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid #d4e6da; background: #fff; font-size: 14px; color: #1a3a28; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none; box-sizing: border-box; }
+        .field-input { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid #d4e6da; background: #fff; font-size: 16px; color: #1a3a28; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none; box-sizing: border-box; }
         .field-input::placeholder { color: #b0c8bb; }
         .field-input:focus { border-color: #2C7A4B; box-shadow: 0 0 0 3px rgba(44,122,75,0.12); }
         .field--error .field-input { border-color: #e05252; box-shadow: none; }
@@ -285,10 +285,12 @@ export default function RegisterPage() {
         .google-btn:hover:not(:disabled) { background: #f5f9f6; border-color: #b8d8c4; }
         .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         @media (max-width: 767px) {
+          .page { flex-direction: column; background: var(--color-green-dark); }
           .panel-left { display: none; }
-          .panel-right { display: block; padding: 0; }
+          .panel-right { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; padding: 0; min-height: 100dvh; }
           .form-header { display: none; }
           .mobile-form-shell {
+            flex: 1;
             position: relative;
             z-index: 2;
             margin-top: -24px;
@@ -296,6 +298,7 @@ export default function RegisterPage() {
             background: var(--color-bg, #F7F5F0);
             padding: 32px 28px 40px;
           }
+          .form-card { max-width: none; }
         }
       `}</style>
     </div>
